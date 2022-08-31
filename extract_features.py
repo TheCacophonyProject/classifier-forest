@@ -75,7 +75,9 @@ def process(db):
     clips = db.get_all_clip_ids()
     x_data = []
     y_data = []
+    groups = []
     ids = []
+    counter = 0
     for clip_id, tracks in clips.items():
         print("Loading ", clip_id)
         clip_meta = db.get_clip_meta(clip_id)
@@ -94,13 +96,17 @@ def process(db):
             X, y = utils.process_track(track_header, frames, background)
             x_data.append(X)
             y_data.append(y)
+            groups.append(counter)
+
             ids.append(track_header.unique_id)
+        counter += 1
         # break
     # Dump everything out to pickle file
     train = {
         "X": np.array(x_data),
         "Y": np.array(y_data),
-        "I": np.array(ids),
+        "I": np.array(groups),
+        "ids": np.array(ids),
     }
     with open("train-new.pickle", "wb") as f:
         pickle.dump(train, f, pickle.HIGHEST_PROTOCOL)
