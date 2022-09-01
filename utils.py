@@ -89,6 +89,8 @@ def process_track(
     maximum_features = None
     f_count = 0
     prev_count = 0
+    if track.num_frames < BUFF_LEN:
+        return None, None
     for f, region in frame_data:
         if region.blank or region.width == 0 or region.height == 0:
             prev_count = 0

@@ -94,10 +94,12 @@ def process(db):
             print("Track ", track_header.track_id, track_header.label)
             frames = db.get_track(clip_id, track_meta["id"], channels=0)
             X, y = utils.process_track(track_header, frames, background)
+            if X is None:
+                print("Didn't use", track_header.unique_id)
+                continue
             x_data.append(X)
             y_data.append(y)
             groups.append(counter)
-
             ids.append(track_header.unique_id)
         counter += 1
         # break
