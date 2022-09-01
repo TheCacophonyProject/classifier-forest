@@ -89,7 +89,7 @@ def process_track(
     maximum_features = None
     f_count = 0
     prev_count = 0
-    if track.num_frames < BUFF_LEN:
+    if track.num_frames <= BUFF_LEN:
         return None, None
     for f, region in frame_data:
         if region.blank or region.width == 0 or region.height == 0:
@@ -136,8 +136,7 @@ def process_track(
         [0, 0, 0, 0, 0, 1, 1, 1, 1, 3, 3, 3, 3, 5, 5, 5, 5]
     )  # Normalise each measure by however many samples went into it
     avg_features /= N
-    std_features = np.sqrt(std_features / N - avg_features ** 2)
-
+    std_features = np.sqrt(std_features / N - avg_features**2)
     # gp better check this
     X = np.hstack(
         (avg_features, std_features, maximum_features, np.array([track.num_frames]))

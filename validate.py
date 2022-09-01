@@ -82,15 +82,13 @@ FEAT_LABELS = [
 # How should track labels be grouped together?
 groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
-    [
-        "bird",
-        "bird/kiwi",
-    ],  # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
+    ["bird", "bird/kiwi", "penguin"],
+    ["wallaby"],
+    ["human"],
+    # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
 ]
-group_labels = ["pests", "birds"]
-if not REJECT_OTHERS:
-    groups.append(["other"])
-    group_labels.append("other")
+group_labels = ["pests", "birds", "wallaby", "human"]
+
 # Seed random number generator for repeatability
 np.random.seed(0)
 
@@ -115,20 +113,25 @@ y = num_classes * np.ones(
     num_samples
 )  # Anything that doesn't match one of the groups defined above will be given a high label, and we'll decide below whether to keep them or not
 counts = np.zeros(num_classes + 1)
+other_labels = set()
 for i in range(num_samples):
     track_label = train["Y"][i]
+    found = False
     for j in range(num_classes):
         if track_label in groups[j]:
+            found = True
             y[i] = j
             counts[j] += 1
             break
 
+    if not found:
+        other_labels.add(track_label)
 # Display group info (should have a few hundred at least in each class for reliable classification)
 print(f'{"class":9}   {"count":9}   {"labels"}')
 for j in range(num_classes):
     print(f"{j:9}   {counts[j]:9}   {groups[j]}")
-print(f'{"?":9}   {num_samples-np.sum(counts):9}   {"Other"}')
-
+print(f'{num_classes:9}   {num_samples-np.sum(counts):9}   {"Other"}({other_labels})')
+# print(other_labels)
 if REJECT_OTHERS:
     print("Getting rid of others")
     mask = y < num_classes
@@ -138,11 +141,13 @@ if REJECT_OTHERS:
     num_samples = X.shape[0]
 else:
     # set to toher class
+
+    groups.append(["other"])
+    group_labels.append(f"other")
     mask = y >= num_classes
+    other_labels = set(y[mask])
     y[mask] = len(groups) - 1
-
-print(num_samples)
-
+    num_classes += 1
 
 # Random forest has lots of settings in addition to the ones here.
 # Would be good to run a grid search to find ideal values at some point before deployment.
@@ -171,7 +176,7 @@ for train_index, test_index in kfold.split(X, y, I):
     p_pred = model.predict_proba(
         X_test
     )  # Probabilities are useful for filtering and generating ROC curves
-
+    print("predicted prob", predicted_prob.shape, p_pred.shape)
     actual_classes = np.append(actual_classes, y_test)
     predicted_classes = np.append(predicted_classes, y_pred)
     predicted_prob = np.append(predicted_prob, p_pred, axis=0)
@@ -180,17 +185,19 @@ for train_index, test_index in kfold.split(X, y, I):
 # Confusion matrix
 print("     P R E D I C T E D")
 space = ""
-print(f"{space:9}", end="")
+print(f"{space:12}", end="")
 for g_l in group_labels:
-    print(f"{g_l:9}", end="")
-print(f"total")
+    print(f"{g_l:13}", end="")
+print("")
 for i in range(num_classes):
-    print(group_labels[i], end="")
+    print(group_labels[i].ljust(9, " "), end="")
+    total = np.sum(actual_classes == i)
+
     for j in range(num_classes):
         s = np.sum(np.logical_and(actual_classes == i, predicted_classes == j))
-        print(f"{s:9}", end="")
-    s = np.sum(actual_classes == i)
-    print(f" | {s:9}")
+        formatted = f"{s:5} ( {round(s/total * 100)}% )"
+        print(f"{formatted:13}", end="")
+    print(f" | {total:9}")
 print("---------------------------------------")
 print("Total predictions")
 for j in range(num_classes):
@@ -207,19 +214,22 @@ predicted_prob_masked = predicted_prob[mask]
 
 # New confusion matrix
 print("REJECT LOW CONFIDENCE     P R E D I C T E D")
-print(f"{space:9}", end="")
+print(f"{space:12}", end="")
 for g_l in group_labels:
-    print(f"{g_l:9}", end="")
+    print(f"{g_l:13}", end="")
 print(f"total")
 for i in range(num_classes):
-    print(group_labels[i], end="")
+    print(group_labels[i].ljust(9, " "), end="")
+    total = np.sum(actual_classes == i)
     for j in range(num_classes):
         s = np.sum(
             np.logical_and(actual_classes_masked == i, predicted_classes_masked == j)
         )
-        print(f"{s:9}", end="")
+        formatted = f"{s:5} ( {round(s/total * 100)}% )"
+
+        print(f"{formatted:13}", end="")
     s = np.sum(actual_classes_masked == i)
-    print(f" | {s:9}")
+    print(f" | {total:9}")
 print("---------------------------------------")
 for j in range(num_classes):
     s = np.sum(predicted_classes_masked == j)
