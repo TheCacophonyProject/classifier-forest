@@ -17,6 +17,21 @@ from pathlib import Path
 from trackdatabase import TrackDatabase
 from datasetstructures import TrackHeader
 
+FILTERED_STATS = {
+    "confidence": 0,
+    "trap": 0,
+    "banned": 0,
+    "date": 0,
+    "tags": 0,
+    "segment_mass": 0,
+    "no_data": 0,
+    "not-confirmed": 0,
+    "tag_names": set(),
+    "notags": 0,
+    "bad_track_json": 0,
+}
+EXCLUDED_LABELS = ["poor tracking", "part", "untagged", "unidentified"]
+INCLUDED_LABELS = None  # include all
 # Point to top-level folder containing subfolders with cptv files
 # data_folder = r"D:\Data\cacophony"
 #
@@ -85,7 +100,6 @@ def process(db):
         tracks = db.get_clip_tracks(clip_id)
         for track_meta in tracks:
             if filter_track(clip_meta, track_meta):
-                filtered += 1
                 continue
             track_header = TrackHeader.from_meta(clip_id, clip_meta, track_meta)
             if track_header is None:
@@ -114,6 +128,7 @@ def process(db):
         "I": np.array(groups),
         "ids": np.array(ids),
     }
+    print("Filtered", FILTERED_STATS)
     with open("train-new.pickle", "wb") as f:
         pickle.dump(train, f, pickle.HIGHEST_PROTOCOL)
 
@@ -135,7 +150,60 @@ def process_cptv(cptv_file):
                     x, y = utils.process_sequence(cptv_file, data)
 
 
-def filter_track(clip, track):
+def filter_track(clip_meta, track_meta):
+    if "tag" not in track_meta:
+        FILTERED_STATS["notags"] += 1
+        return True
+    if INCLUDED_LABELS is not None and track_meta["tag"] not in INCLUDED_LABELS:
+        FILTERED_STATS["tags"] += 1
+        FILTERED_STATS["tag_names"].add(track_meta["tag"])
+        return True
+    track_tags = track_meta.get("track_tags")
+    if track_tags is not None:
+        try:
+            track_tags = json.loads(track_tags)
+        except:
+            logging.error(
+                "Error loading track tags json for %s clip %s track %s",
+                track_tags,
+                clip_meta.get("id"),
+                track_meta.get("id"),
+            )
+            FILTERED_STATS["bad_track_json"] += 1
+
+            return True
+        bad_tags = [
+            tag["what"]
+            for tag in track_tags
+            if not tag.get("automatic", False) and tag.get("what") in EXCLUDED_LABELS
+        ]
+        if len(bad_tags) > 0:
+            FILTERED_STATS["tag_names"] |= set(bad_tags)
+
+            FILTERED_STATS["tags"] += 1
+            return True
+    # always let the false-positives through as we need them even though they would normally
+    # be filtered out.
+    if "bounds_history" not in track_meta or len(track_meta["bounds_history"]) == 0:
+        FILTERED_STATS["no_data"] += 1
+        return True
+
+    if track_meta["tag"] == "false-positive":
+        return False
+
+    # for some reason we get some records with a None confidence?
+    if track_meta.get("confidence", 1.0) <= 0.6:
+        FILTERED_STATS["confidence"] += 1
+        return True
+
+    # remove tracks of trapped animals
+    if (
+        "trap" in clip_meta.get("event", "").lower()
+        or "trap" in clip_meta.get("trap", "").lower()
+    ):
+        FILTERED_STATS["trap"] += 1
+        return True
+
     return False
 
 
