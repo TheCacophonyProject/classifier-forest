@@ -178,7 +178,6 @@ for train_index, test_index in kfold.split(X, y, I):
     p_pred = model.predict_proba(
         X_test
     )  # Probabilities are useful for filtering and generating ROC curves
-    print("predicted prob", predicted_prob.shape, p_pred.shape)
     actual_classes = np.append(actual_classes, y_test)
     predicted_classes = np.append(predicted_classes, y_pred)
     predicted_prob = np.append(predicted_prob, p_pred, axis=0)
