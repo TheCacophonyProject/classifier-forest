@@ -227,7 +227,7 @@ confusion_matrix_confident = np.zeros((num_classes, num_classes))
 for i in range(num_classes):
 
     print(group_labels[i].ljust(9, " "), end="")
-    total = np.sum(actual_classes == i)
+    total = np.sum(actual_classes_masked == i)
     for j in range(num_classes):
         s = np.sum(
             np.logical_and(actual_classes_masked == i, predicted_classes_masked == j)
