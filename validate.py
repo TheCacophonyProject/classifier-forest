@@ -9,9 +9,11 @@ from sklearn.model_selection import GroupKFold
 import numpy as np
 import os
 import pickle
-
+import joblib
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
+import time
+import json
 
 data_folder = r""
 
@@ -189,6 +191,8 @@ print(f"{space:12}", end="")
 for g_l in group_labels:
     print(f"{g_l:13}", end="")
 print("")
+confusion_matrix = np.zeros((num_classes, num_classes))
+
 for i in range(num_classes):
     print(group_labels[i].ljust(9, " "), end="")
     total = np.sum(actual_classes == i)
@@ -197,6 +201,8 @@ for i in range(num_classes):
         s = np.sum(np.logical_and(actual_classes == i, predicted_classes == j))
         formatted = f"{s:5} ( {round(s/total * 100)}% )"
         print(f"{formatted:13}", end="")
+        confusion_matrix[i][j] = s
+
     print(f" | {total:9}")
 print("---------------------------------------")
 print("Total predictions")
@@ -218,7 +224,9 @@ print(f"{space:12}", end="")
 for g_l in group_labels:
     print(f"{g_l:13}", end="")
 print(f"total")
+confusion_matrix_confident = np.zeros((num_classes, num_classes))
 for i in range(num_classes):
+
     print(group_labels[i].ljust(9, " "), end="")
     total = np.sum(actual_classes == i)
     for j in range(num_classes):
@@ -226,7 +234,7 @@ for i in range(num_classes):
             np.logical_and(actual_classes_masked == i, predicted_classes_masked == j)
         )
         formatted = f"{s:5} ( {round(s/total * 100)}% )"
-
+        confusion_matrix_confident[i][j] = s
         print(f"{formatted:13}", end="")
     s = np.sum(actual_classes_masked == i)
     print(f" | {total:9}")
@@ -272,3 +280,22 @@ inds = np.argsort(feat_import)
 print("Feature importances (ranked):")
 for i in range(len(FEAT_LABELS)):
     print(f"{i+1:3}   {FEAT_LABELS[inds[-1-i]]:20} {100*feat_import[inds[-1-i]]:.1f}%")
+
+print("Saving too", "random_forest.joblib")
+joblib.dump(model, "./random_forest.joblib")
+print(confusion_matrix)
+model_meta = {
+    "groups": list(groups),
+    "labels": list(group_labels),
+    "counts": list(counts),
+    "confusion_matrix_confident": confusion_matrix_confident.tolist(),
+    "confusion": confusion_matrix.tolist(),
+    "time": time.time(),
+}
+
+with open("random_forest.txt", "w") as f:
+    json.dump(
+        model_meta,
+        f,
+        indent=4,
+    )
