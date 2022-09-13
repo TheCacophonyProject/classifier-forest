@@ -134,10 +134,17 @@ def grid_search(args):
     rf = RandomForestClassifier()
 
     grid_search = GridSearchCV(
-        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=2
+        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
     )
     grid_search.fit(X, y)
     print("Grid search best params", grid_search.best_params_)
+    results = grid_search.cv_results_["params"]
+    scores = grid_search.cv_results_["mean_test_score"]
+    # for k, v in grid_search.cv_results_.items():
+    #     print("k is", k)
+    #     print(v)
+    for r, s in zip(results, scores):
+        print("Params:", r, " Score: ", s)
     best_grid = grid_search.best_estimator_
     # best_grid.fit(X, y)
 
