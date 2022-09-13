@@ -18,12 +18,12 @@ import json
 data_folder = r""
 
 # Hardcoded settings
-REJECT_OTHERS = False  # Set to True to ignore anything that is not explicitly listed in the 'groups' dictionary below, or False if you would prefer to include 'Others' as a class
+REJECT_OTHERS = True  # Set to True to ignore anything that is not explicitly listed in the 'groups' dictionary below, or False if you would prefer to include 'Others' as a class
 PROBABILITY_THRESHOLD = 0.7  # In the second round of cross-validation only predictions with confidence greater than this will be included.
 MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be included in training. This is just here to investigate how the classifier works on small / far away animals that never get close to the camera to be well resolved. Set to 7 to cut out about half of the tracks, or a big value (999) to keep everything.
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
 MAX_TREE_DEPTH = 6  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
-NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
+NUM_FOLDS = 2  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
 
 # More hardcoded nastiness!
 FEAT_LABELS = [
@@ -83,18 +83,28 @@ FEAT_LABELS = [
 
 # How should track labels be grouped together?
 groups = [
-    ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
-    ["bird", "bird/kiwi", "penguin"],
-    ["wallaby"],
+    ["rodent"],
+    ["mustelid"],
+    ["leporidae"],
+    ["hedgehog"],
+    ["possum"],
+    ["cat"],
+    ["bird"],
+    ["bird/kiwi"],
+    ["penguin"],
+    # ["wallaby"],
     ["human"],
     # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
 ]
-group_labels = ["pests", "birds", "wallaby", "human"]
+group_labels = []
+for l in groups:
+    group_labels.append(l[0])
+    # ["pests", "birds", "wallaby", "human"]
 
 # Seed random number generator for repeatability
 np.random.seed(0)
 
-with open(os.path.join(data_folder, "train-new.pickle"), "rb") as f:
+with open(os.path.join(data_folder, "train.pickle"), "rb") as f:
     train = pickle.load(f)
 
 # Reject any tracks where the max size (feature #34) is too large
@@ -211,6 +221,71 @@ for j in range(num_classes):
 print(f" | {num_samples:9}")
 
 
+grouped = [
+    ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
+    ["bird", "bird/kiwi", "penguin"],
+    # ["wallaby"],
+    ["human"],
+    # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
+]
+re_labels = ["pest", "bird", "human"]
+grouped_map = {}
+offset = 0
+for g_i, g in enumerate(grouped):
+    for i in range(len(g)):
+        grouped_map[i + offset] = g_i
+    offset += len(g)
+print("mapping is", grouped_map)
+# Reject low confidence predictions
+re_classes = actual_classes.copy()
+re_preds = predicted_classes.copy()
+re_probs = np.zeros((len(predicted_classes), len(grouped)), dtype=np.float32)
+index = 0
+for a, p, prob in zip(actual_classes, predicted_classes, predicted_prob):
+    new_a = grouped_map[a]
+    re_classes[index] = new_a
+    probs = np.zeros(len(grouped), dtype=np.float32)
+    for p_i, l_p in enumerate(prob):
+        new_prob = grouped_map[p_i]
+        probs[new_prob] += l_p
+    new_p = np.argmax(probs)
+    re_preds[index] = new_p
+    # print(a, p, prob)
+    # print(new_a, new_p, "set new prob", probs)
+    re_probs[index] = probs
+
+
+# Confusion matrix
+print(" GROUPED    P R E D I C T E D")
+space = ""
+print(f"{space:12}", end="")
+for g_l in re_labels:
+    print(f"{g_l:13}", end="")
+print("")
+
+for i in range(len(grouped)):
+    print(re_labels[i].ljust(9, " "), end="")
+    total = np.sum(re_classes == i)
+
+    for j in range(len(grouped)):
+        s = np.sum(np.logical_and(re_classes == i, re_preds == j))
+        if total == 0:
+            percent = 0
+        else:
+            percent = round(s / total * 100)
+
+        formatted = f"{s:5} ( {percent}% )"
+        print(f"{formatted:13}", end="")
+        # confusion_matrix[i][j] = s
+
+    print(f" | {total:9}")
+print("---------------------------------------")
+print("Total predictions")
+for j in range(len(grouped)):
+    s = np.sum(re_classes == j)
+    print(f"{s:9}", end="")
+print(f" | {num_samples:9}")
+
 # Reject low confidence predictions
 mask = np.max(predicted_prob, axis=1) > PROBABILITY_THRESHOLD
 actual_classes_masked = actual_classes[mask]
@@ -232,7 +307,12 @@ for i in range(num_classes):
         s = np.sum(
             np.logical_and(actual_classes_masked == i, predicted_classes_masked == j)
         )
-        formatted = f"{s:5} ( {round(s/total * 100)}% )"
+        if total == 0:
+            percent = 0
+        else:
+            percent = round(s / total * 100)
+
+        formatted = f"{s:5} ( {percent}% )"
         confusion_matrix_confident[i][j] = s
         print(f"{formatted:13}", end="")
     s = np.sum(actual_classes_masked == i)
@@ -242,6 +322,9 @@ for j in range(num_classes):
     s = np.sum(predicted_classes_masked == j)
     print(f"{s:9}", end="")
 print(f" | {len(actual_classes_masked):9}")
+
+
+# group_labels = ["pests", "birds", "wallaby", "human"]
 
 # ROC curves (only available for binary classification)
 if num_classes == 2:
