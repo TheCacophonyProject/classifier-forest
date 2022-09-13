@@ -23,7 +23,7 @@ from sklearn.model_selection import GridSearchCV
 data_folder = r""
 
 # Hardcoded settings
-REJECT_OTHERS = False  # Set to True to ignore anything that is not explicitly listed in the 'groups' dictionary below, or False if you would prefer to include 'Others' as a class
+REJECT_OTHERS = True  # Set to True to ignore anything that is not explicitly listed in the 'groups' dictionary below, or False if you would prefer to include 'Others' as a class
 PROBABILITY_THRESHOLD = 0.7  # In the second round of cross-validation only predictions with confidence greater than this will be included.
 MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be included in training. This is just here to investigate how the classifier works on small / far away animals that never get close to the camera to be well resolved. Set to 7 to cut out about half of the tracks, or a big value (999) to keep everything.
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
@@ -86,6 +86,27 @@ FEAT_LABELS = [
     "track_length",
 ]
 
+
+groups = [
+    ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
+    ["bird", "bird/kiwi", "penguin"],
+    ["human", "false-positive", "insect"],
+    ["vehicle"],
+]
+
+
+# groups = [
+# ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
+# ["bird", "bird/kiwi", "penguin"],
+# ["wallaby"],
+# ["human"],
+# Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
+# ]
+
+
+group_labels = ["pests", "birds", "human", "vehicle"]
+
+
 # TODO
 def evaluate(model, test_features, test_labels):
     predictions = model.predict(test_features)
@@ -99,37 +120,43 @@ def evaluate(model, test_features, test_labels):
     return accuracy
 
 
-def grid_search():
+def grid_search(args):
     param_grid = {
         "class_weight": ["balanced"],
         "bootstrap": [True],
         "max_depth": [4, 6, 8, 10, 20, 30, 40],
         "max_features": [2, 3, 4, 6, 8, 10],
-        "min_samples_leaf": [3, 4, 5],
+        "min_samples_leaf": [1, 2, 3],
         "min_samples_split": [2, 4, 8, 10, 12],
         "n_estimators": [100, 200, 300, 1000],
     }
+    X, y, I, counts, num_classes = load_data(args.data_file, groups)
+    rf = RandomForestClassifier()
 
     grid_search = GridSearchCV(
-        estimator=rf, param_grid=param_grid, cv=3, n_jobs=-1, verbose=2
+        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=2
     )
-    grid_search.fit(train_features, train_labels)
+    grid_search.fit(X, y)
     print("Grid search best params", grid_search.best_params_)
-    show_confusion(group_labels, actual_classes, predicted_classes, num_samples)
+    best_grid = grid_search.best_estimator_
+    # best_grid.fit(X, y)
+
+    y_pred = best_grid.predict(X)
+    p_prob = best_grid.predict_proba(X)
+
+    show_confusion(group_labels, y, y_pred, 0)
+
+    mask = np.max(p_prob, axis=1) > PROBABILITY_THRESHOLD
+    actual_classes_masked = y[mask]
+    predicted_classes_masked = y_pred[mask]
+    # predicted_prob_masked = predicted_prob[mask]
+    print("REJECT LOW CONFIDENCE     P R E D I C T E D")
+    confusion_matrix_confident = show_confusion(
+        group_labels, actual_classes_masked, predicted_classes_masked, 0
+    )
 
 
 def load_data(data_file, groups):
-
-    # How should track labels be grouped together?
-    groups = [
-        ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
-        ["bird", "bird/kiwi", "penguin"],
-        ["wallaby"],
-        ["human"],
-        # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
-    ]
-    group_labels = ["pests", "birds", "wallaby", "human"]
-
     # Seed random number generator for repeatability
     np.random.seed(0)
 
@@ -194,86 +221,9 @@ def load_data(data_file, groups):
     return X, y, I, counts, num_classes
 
 
-groups = [
-    ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
-    ["bird", "bird/kiwi", "penguin"],
-    ["wallaby"],
-    ["human"],
-    # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
-]
-
-
-group_labels = ["pests", "birds", "wallaby", "human"]
-
-
 def train(args):
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     num_samples = X.shape[0]
-
-    #
-    # # How should track labels be grouped together?
-    #
-    # # Seed random number generator for repeatability
-    # np.random.seed(0)
-    #
-    # with open(args.data_file, "rb") as f:
-    #     train = pickle.load(f)
-    #
-    # # Reject any tracks where the max size (feature #34) is too large
-    # mask = train["X"][:, 34] < MAX_SIZE
-    # train["X"] = train["X"][mask, :]
-    # train["Y"] = train["Y"][mask]
-    # train["I"] = train["I"][mask]
-    # print(f"Keeping {100*np.mean(mask):.1f}% of samples based on max size")
-    #
-    # X = train["X"]
-    # I = train["I"]
-    # num_samples = X.shape[0]
-    # num_feats = X.shape[1]
-    # num_classes = len(groups)
-    #
-    # # Get group indices and counts
-    # y = num_classes * np.ones(
-    #     num_samples
-    # )  # Anything that doesn't match one of the groups defined above will be given a high label, and we'll decide below whether to keep them or not
-    # counts = np.zeros(num_classes + 1)
-    # other_labels = set()
-    # for i in range(num_samples):
-    #     track_label = train["Y"][i]
-    #     found = False
-    #     for j in range(num_classes):
-    #         if track_label in groups[j]:
-    #             found = True
-    #             y[i] = j
-    #             counts[j] += 1
-    #             break
-    #
-    #     if not found:
-    #         other_labels.add(track_label)
-    # # Display group info (should have a few hundred at least in each class for reliable classification)
-    # print(f'{"class":9}   {"count":9}   {"labels"}')
-    # for j in range(num_classes):
-    #     print(f"{j:9}   {counts[j]:9}   {groups[j]}")
-    # print(
-    #     f'{num_classes:9}   {num_samples-np.sum(counts):9}   {"Other"}({other_labels})'
-    # )
-    # # print(other_labels)
-    # if REJECT_OTHERS:
-    #     print("Getting rid of others")
-    #     mask = y < num_classes
-    #     X = X[mask, :]
-    #     y = y[mask]
-    #     I = I[mask]
-    #     num_samples = X.shape[0]
-    # else:
-    #     # set to toher class
-    #
-    #     groups.append(["other"])
-    #     group_labels.append(f"other")
-    #     mask = y >= num_classes
-    #     other_labels = set(y[mask])
-    #     y[mask] = len(groups) - 1
-    #     num_classes += 1
 
     # Random forest has lots of settings in addition to the ones here.
     # Would be good to run a grid search to find ideal values at some point before deployment.
@@ -386,7 +336,11 @@ def show_confusion(group_labels, actual_classes, predicted_classes, num_samples)
 
         for j in range(num_classes):
             s = np.sum(np.logical_and(actual_classes == i, predicted_classes == j))
-            formatted = f"{s:5} ( {round(s/total * 100)}% )"
+            if total == 0:
+                percent = 0
+            else:
+                percent = round(s / total * 100, 1)
+            formatted = f"{s:5} ( {percent}% )"
             print(f"{formatted:13}", end="")
             confusion_matrix[i][j] = s
 
@@ -421,7 +375,10 @@ def show_features(model):
 def main():
     init_logging()
     args = parse_args()
-    train(args)
+    if args.grid_search:
+        grid_search(args)
+    else:
+        train(args)
 
 
 def parse_args():
