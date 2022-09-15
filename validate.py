@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 import sys
 import argparse
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 data_folder = r""
 
@@ -104,7 +104,7 @@ groups = [
 # ]
 
 
-group_labels = ["pests", "birds", "human", "vehicle"]
+group_labels = ["pests", "birds", "FP", "vehicle"]
 
 
 # TODO
@@ -120,6 +120,12 @@ def evaluate(model, test_features, test_labels):
     return accuracy
 
 
+# Grid search best params
+#  {'bootstrap': True, 'class_weight': 'balanced',
+#  'max_depth': 40, 'max_features': 10, 'min_samples_leaf': 2,
+#   'min_samples_split': 4, 'n_estimators': 1000}
+
+
 def grid_search(args):
     param_grid = {
         "class_weight": ["balanced"],
@@ -133,9 +139,19 @@ def grid_search(args):
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     rf = RandomForestClassifier()
 
-    grid_search = GridSearchCV(
-        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
+    # grid_search = GridSearchCV(
+    #     estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
+    # )
+    grid_search = RandomizedSearchCV(
+        estimator=rf,
+        param_distributions=param_grid,
+        n_iter=100,
+        cv=3,
+        verbose=2,
+        random_state=42,
+        n_jobs=-1,
     )
+
     grid_search.fit(X, y)
     print("Grid search best params", grid_search.best_params_)
     results = grid_search.cv_results_["params"]
@@ -364,7 +380,7 @@ def show_confusion(group_labels, actual_classes, predicted_classes, num_samples)
 def show_features(model):
     # Train on everything to get feature importances
     print("Training on everything...")
-    model.fit(X, y)
+    # model.fit(X, y)
     feat_import = model.feature_importances_
 
     print("Feature importances:")
@@ -391,21 +407,21 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--data_file",
+        "--data-file",
         default="train-new.pickle",
         # type=str,
         help="Location of trianing data pickle file",
     )
     parser.add_argument(
         "-f",
-        "--show_features",
+        "--show-features",
         action="count",
         # type=str,
         help="Show important features",
     )
     parser.add_argument(
         "-g",
-        "--grid_search",
+        "--grid-search",
         action="count",
         # type=str,
         help="Do a grid search",
