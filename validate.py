@@ -19,6 +19,7 @@ from pathlib import Path
 import sys
 import argparse
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.metrics import make_scorer
 
 data_folder = r""
 
@@ -29,6 +30,10 @@ MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be inc
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
 MAX_TREE_DEPTH = 6  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
+MIN_SAMPLES_SPLIT = 4  # Defauilt 2
+MIN_SAMPLES_LEAF = 2  # Default 1
+MAX_FEATURES = 10  # Defauilt is sqrt of features (sqrt(52))
+
 
 # More hardcoded nastiness!
 FEAT_LABELS = [
@@ -120,10 +125,35 @@ def evaluate(model, test_features, test_labels):
     return accuracy
 
 
-# Grid search best params
-#  {'bootstrap': True, 'class_weight': 'balanced',
-#  'max_depth': 40, 'max_features': 10, 'min_samples_leaf': 2,
-#   'min_samples_split': 4, 'n_estimators': 1000}
+#
+# lOSS FUNCTION based of confident predictions
+def confident_loss_func(ground_truth, predictions):
+    probs = np.max(predictions, axis=1)
+    predictions = np.argmax(predictions, axis=1)
+    non_confident = (ground_truth == predictions).sum()
+
+    mask = probs > PROBABILITY_THRESHOLD
+    masked_t = ground_truth[mask]
+    masked_p = predictions[mask]
+    confident_count = (masked_t == masked_p).sum()
+
+    return confident_count / len(predictions)
+
+
+#
+# # loss_func will negate the return value of my_custom_loss_func,
+# #  which will be np.log(2), 0.693, given the values for ground_truth
+# #  and predictions defined below.
+# score = make_scorer(my_custom_loss_func, greater_is_better=True, needs_proba=True)
+# ground_truth = [[1, 1]]
+# predictions = [0, 1]
+# from sklearn.dummy import DummyClassifier
+#
+# clf = DummyClassifier(strategy="most_frequent", random_state=0)
+# clf = clf.fit(ground_truth, predictions)
+# loss(clf, ground_truth, predictions)
+#
+# score(clf, ground_truth, predictions)
 
 
 def grid_search(args):
@@ -138,6 +168,7 @@ def grid_search(args):
     }
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     rf = RandomForestClassifier()
+    loss = make_scorer(confident_loss_func, greater_is_better=False, needs_proba=True)
 
     # grid_search = GridSearchCV(
     #     estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
@@ -150,12 +181,15 @@ def grid_search(args):
         verbose=2,
         random_state=42,
         n_jobs=-1,
+        return_train_score=True,
+        # scoring=loss,
     )
 
     grid_search.fit(X, y)
     print("Grid search best params", grid_search.best_params_)
     results = grid_search.cv_results_["params"]
     scores = grid_search.cv_results_["mean_test_score"]
+
     # for k, v in grid_search.cv_results_.items():
     #     print("k is", k)
     #     print(v)
@@ -164,19 +198,20 @@ def grid_search(args):
     best_grid = grid_search.best_estimator_
     # best_grid.fit(X, y)
 
-    y_pred = best_grid.predict(X)
-    p_prob = best_grid.predict_proba(X)
-
-    show_confusion(group_labels, y, y_pred, 0)
-
-    mask = np.max(p_prob, axis=1) > PROBABILITY_THRESHOLD
-    actual_classes_masked = y[mask]
-    predicted_classes_masked = y_pred[mask]
-    # predicted_prob_masked = predicted_prob[mask]
-    print("REJECT LOW CONFIDENCE     P R E D I C T E D")
-    confusion_matrix_confident = show_confusion(
-        group_labels, actual_classes_masked, predicted_classes_masked, 0
-    )
+    # not much point without a test set
+    # y_pred = best_grid.predict(X)
+    # p_prob = best_grid.predict_proba(X)
+    #
+    # show_confusion(group_labels, y, y_pred, 0)
+    #
+    # mask = np.max(p_prob, axis=1) > PROBABILITY_THRESHOLD
+    # actual_classes_masked = y[mask]
+    # predicted_classes_masked = y_pred[mask]
+    # # predicted_prob_masked = predicted_prob[mask]
+    # print("REJECT LOW CONFIDENCE     P R E D I C T E D")
+    # confusion_matrix_confident = show_confusion(
+    #     group_labels, actual_classes_masked, predicted_classes_masked, 0
+    # )
 
 
 def load_data(data_file, groups):
@@ -254,6 +289,9 @@ def train(args):
         n_estimators=NUM_TREES,
         max_depth=MAX_TREE_DEPTH,
         class_weight="balanced",
+        min_samples_split=MIN_SAMPLES_SPLIT,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        max_features=MAX_FEATURES,
     )
     # Run cross-validation
     kfold = GroupKFold(n_splits=NUM_FOLDS)
@@ -278,7 +316,6 @@ def train(args):
         actual_classes = np.append(actual_classes, y_test)
         predicted_classes = np.append(predicted_classes, y_pred)
         predicted_prob = np.append(predicted_prob, p_pred, axis=0)
-
     print("     P R E D I C T E D")
     confusion_matrix = show_confusion(
         group_labels, actual_classes, predicted_classes, num_samples
