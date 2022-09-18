@@ -30,7 +30,7 @@ MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be inc
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
 MAX_TREE_DEPTH = 6  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
-MIN_SAMPLES_SPLIT = 4  # Defauilt 2
+MIN_SAMPLES_SPLIT = 4  # Default 2
 MIN_SAMPLES_LEAF = 2  # Default 1
 MAX_FEATURES = 10  # Defauilt is sqrt of features (sqrt(52))
 
@@ -160,30 +160,30 @@ def grid_search(args):
     param_grid = {
         "class_weight": ["balanced"],
         "bootstrap": [True],
-        "max_depth": [4, 6, 8, 10, 20, 30, 40],
-        "max_features": [2, 3, 4, 6, 8, 10],
+        "max_depth": [40],  # probably NOne is best
+        "max_features": [6, 8, 10, 12, 14],
         "min_samples_leaf": [1, 2, 3],
         "min_samples_split": [2, 4, 8, 10, 12],
-        "n_estimators": [100, 200, 300, 1000],
+        "n_estimators": [100],
     }
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     rf = RandomForestClassifier()
     loss = make_scorer(confident_loss_func, greater_is_better=False, needs_proba=True)
 
-    # grid_search = GridSearchCV(
-    #     estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
-    # )
-    grid_search = RandomizedSearchCV(
-        estimator=rf,
-        param_distributions=param_grid,
-        n_iter=100,
-        cv=3,
-        verbose=2,
-        random_state=42,
-        n_jobs=-1,
-        return_train_score=True,
-        # scoring=loss,
+    grid_search = GridSearchCV(
+        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
     )
+    # grid_search = RandomizedSearchCV(
+    #     estimator=rf,
+    #     param_distributions=param_grid,
+    #     n_iter=100,
+    #     cv=3,
+    #     verbose=2,
+    #     random_state=42,
+    #     n_jobs=-1,
+    #     return_train_score=True,
+    #     # scoring=loss,
+    # )
 
     grid_search.fit(X, y)
     print("Grid search best params", grid_search.best_params_)
