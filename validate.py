@@ -28,11 +28,11 @@ REJECT_OTHERS = True  # Set to True to ignore anything that is not explicitly li
 PROBABILITY_THRESHOLD = 0.7  # In the second round of cross-validation only predictions with confidence greater than this will be included.
 MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be included in training. This is just here to investigate how the classifier works on small / far away animals that never get close to the camera to be well resolved. Set to 7 to cut out about half of the tracks, or a big value (999) to keep everything.
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
-MAX_TREE_DEPTH = 6  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
+MAX_TREE_DEPTH = 40  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
-MIN_SAMPLES_SPLIT = 4  # Default 2
+MIN_SAMPLES_SPLIT = 2  # Default 2
 MIN_SAMPLES_LEAF = 2  # Default 1
-MAX_FEATURES = 10  # Defauilt is sqrt of features (sqrt(52))
+MAX_FEATURES = 8  # Defauilt is sqrt of features (sqrt(52))
 
 
 # More hardcoded nastiness!
@@ -140,6 +140,29 @@ def confident_loss_func(ground_truth, predictions):
     return confident_count / len(predictions)
 
 
+def squashed_bird_loss_func(ground_truth, predictions):
+    probs = np.max(predictions, axis=1)
+    predictions = np.argmax(predictions, axis=1)
+    bird_mask = ground_truth == 1
+    num_birds = bird_mask.sum()
+    # print("num birds", num_birds, "from X", len(ground_truth))
+    birds = predictions[bird_mask]
+    squashed_birds = (birds == 0).sum()
+    # print("birds predicted as pests", squashed_birds)
+    squashed_percent = squashed_birds / len(ground_truth)
+    # print("squashed_birds", squashed_percent)
+    # print(ground_truth, predictions)
+    # print(birds)
+    # mask = probs > PROBABILITY_THRESHOLD
+    # masked_t = ground_truth[mask]
+    # masked_p = predictions[mask]
+    confident_count = (ground_truth == predictions).sum()
+
+    score = confident_count / len(predictions)
+    # print("score is", score, squashed_percent, score - squashed_percent)
+    return score - squashed_percent
+
+
 #
 # # loss_func will negate the return value of my_custom_loss_func,
 # #  which will be np.log(2), 0.693, given the values for ground_truth
@@ -161,17 +184,19 @@ def grid_search(args):
         "class_weight": ["balanced"],
         "bootstrap": [True],
         "max_depth": [40],  # probably NOne is best
-        "max_features": [6, 8, 10, 12, 14],
+        "max_features": [8, 10, 12],
         "min_samples_leaf": [1, 2, 3],
-        "min_samples_split": [2, 4, 8, 10, 12],
+        "min_samples_split": [2, 4],
         "n_estimators": [100],
     }
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     rf = RandomForestClassifier()
-    loss = make_scorer(confident_loss_func, greater_is_better=False, needs_proba=True)
+    loss = make_scorer(
+        squashed_bird_loss_func, greater_is_better=True, needs_proba=True
+    )
 
     grid_search = GridSearchCV(
-        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3
+        estimator=rf, param_grid=param_grid, n_jobs=-1, verbose=3, scoring=loss
     )
     # grid_search = RandomizedSearchCV(
     #     estimator=rf,
@@ -182,7 +207,7 @@ def grid_search(args):
     #     random_state=42,
     #     n_jobs=-1,
     #     return_train_score=True,
-    #     # scoring=loss,
+    #     scoring=loss,
     # )
 
     grid_search.fit(X, y)
