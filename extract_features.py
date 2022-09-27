@@ -94,7 +94,9 @@ def process(db):
     ids = []
     counter = 0
     for clip_id, tracks in clips.items():
-        print("Loading ", clip_id)
+        # if clip_id != "1020125" and clip_id != "1345135":
+        # continue
+        # print("Loading ", clip_id)
         clip_meta = db.get_clip_meta(clip_id)
         background = db.get_clip_background(clip_id)
         tracks = db.get_clip_tracks(clip_id)
@@ -102,10 +104,13 @@ def process(db):
             if filter_track(clip_meta, track_meta):
                 continue
             track_header = TrackHeader.from_meta(clip_id, clip_meta, track_meta)
+            # if track_header.label != "possum":
+            # continue
             if track_header is None:
                 print("bad data")
                 continue
-            print("Track ", track_header.track_id, track_header.label)
+            print(clip_id, "Track ", track_header.track_id, track_header.label)
+
             frames = db.get_track(clip_id, track_meta["id"], channels=0)
             X, y = utils.process_track(track_header, frames, background)
             if X is None:

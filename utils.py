@@ -10,6 +10,53 @@ import cv2
 import numpy as np
 
 BUFF_LEN = 5
+FEAT_LABELS = [
+    "avg_sqrt_area",
+    "elongation",
+    "peak_snr",
+    "mean_snr",
+    "fill_factor",
+    "move_1",
+    "rel_move_1",
+    "rel_x_move_1",
+    "rel_y_move_1",
+    "move_3",
+    "rel_move_3",
+    "rel_x_move_3",
+    "rel_y_move_3",
+    "move_5",
+    "rel_move_5",
+    "rel_x_move_5",
+    "rel_y_move_5",
+    "max_speed",
+    "min_speed",
+    "avg_speed",
+    "max_speed_x",
+    "min_speed_x",
+    "avg_speed_x",
+    "max_speed_y",
+    "min_speed_y",
+    "avg_speed_y",
+    "max_rel_speed",
+    "min_rel_speed",
+    "avg_rel_speed",
+    "max_rel_speed_x",
+    "min_rel_speed_x",
+    "avg_rel_speed_x",
+    "max_rel_speed_y",
+    "min_rel_speed_y",
+    "avg_rel_speed_y",
+]
+EXTRA_FEATURES = [
+    "speed_distance_ratio",
+    "speed_ratio",
+    "burst_min",
+    "burst_max",
+    "birst_mean",
+    "burst_chance",
+    "burst_per_frame",
+    "total frames",
+]
 
 
 class Frame:
@@ -22,6 +69,8 @@ class Frame:
         self.rel_speed = np.zeros(BUFF_LEN)
         self.rel_speed_x = np.zeros(BUFF_LEN)
         self.rel_speed_y = np.zeros(BUFF_LEN)
+        self.speed_x = np.zeros(BUFF_LEN)
+        self.speed_y = np.zeros(BUFF_LEN)
         self.speed = np.zeros(BUFF_LEN)
 
     def calculate(self, thermal, sub_back):
@@ -52,6 +101,60 @@ class Frame:
         self.fill_factor = np.sum(filtered) / area
 
     def features(self):
+        non_zero = np.array([s for s in self.speed if s > 0])
+        max_speed = 0
+        min_speed = 0
+        avg_speed = 0
+        if len(non_zero) > 0:
+            max_speed = np.amax(non_zero)
+            min_speed = np.amin(non_zero)
+            avg_speed = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.speed_x if s > 0])
+        max_speed_x = 0
+        min_speed_x = 0
+        avg_speed_x = 0
+        if len(non_zero) > 0:
+            max_speed_x = np.amax(non_zero)
+            min_speed_x = np.amin(non_zero)
+            avg_speed_x = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.speed_y if s > 0])
+        max_speed_y = 0
+        min_speed_y = 0
+        avg_speed_y = 0
+        if len(non_zero) > 0:
+            max_speed_y = np.amax(non_zero)
+            min_speed_y = np.amin(non_zero)
+            avg_speed_y = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed if s > 0])
+        max_rel_speed = 0
+        min_rel_speed = 0
+        avg_rel_speed = 0
+        if len(non_zero) > 0:
+            max_rel_speed = np.amax(non_zero)
+            min_rel_speed = np.amin(non_zero)
+            avg_rel_speed = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed_x if s > 0])
+        max_rel_speed_x = 0
+        min_rel_speed_x = 0
+        avg_rel_speed_x = 0
+        if len(non_zero) > 0:
+            max_rel_speed_x = np.amax(non_zero)
+            min_rel_speed_x = np.amin(non_zero)
+            avg_rel_speed_x = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed_y if s > 0])
+        max_rel_speed_y = 0
+        min_rel_speed_y = 0
+        avg_rel_speed_y = 0
+        if len(non_zero) > 0:
+            max_rel_speed_y = np.amax(non_zero)
+            min_rel_speed_y = np.amin(non_zero)
+            avg_rel_speed_y = np.mean(non_zero)
+
         return np.array(
             [
                 self.sqrt_area,
@@ -71,6 +174,24 @@ class Frame:
                 self.rel_speed[4],
                 self.rel_speed_x[4],
                 self.rel_speed_y[4],
+                max_speed,
+                min_speed,
+                avg_speed,
+                max_speed_x,
+                min_speed_x,
+                avg_speed_x,
+                max_speed_y,
+                min_speed_y,
+                avg_speed_y,
+                max_rel_speed,
+                min_rel_speed,
+                avg_rel_speed,
+                max_rel_speed_x,
+                min_rel_speed_x,
+                avg_rel_speed_x,
+                max_rel_speed_y,
+                min_rel_speed_y,
+                avg_rel_speed_y,
             ]
         )
 
@@ -84,11 +205,17 @@ def process_track(
     PLAYBACK_DELAY=1,
 ):
     frames = []
+    minimum_features = None
     avg_features = None
     std_features = None
     maximum_features = None
     f_count = 0
     prev_count = 0
+    low_speed_distance = 0
+    high_speed_distance = 0
+    burst_frames = 0
+    burst_history = []
+    last_burst = 0
     if track.num_frames <= BUFF_LEN:
         return None, None
     for f, region in frame_data:
@@ -102,7 +229,6 @@ def process_track(
         f_count += 1
         f = np.float64(f)
         f = f + np.median(background) - median
-        filtered = f - sub_back
         frame = Frame(region)
 
         frame.calculate(f, sub_back)
@@ -111,20 +237,33 @@ def process_track(
             prev = frames[-i - 1]
             vel = frame.cent - prev.cent
             frame.speed[i] = np.sqrt(np.sum(vel * vel))
+            frame.speed_x[i] = np.abs(vel[0])
+            frame.speed_y[i] = np.abs(vel[1])
+
             frame.rel_speed[i] = frame.speed[i] / frame.sqrt_area
             frame.rel_speed_x[i] = np.abs(vel[0]) / frame.sqrt_area
             frame.rel_speed_y[i] = np.abs(vel[1]) / frame.sqrt_area
+        # cv2.imshow("F", np.uint8(f))
 
+        # cv2.waitKey(100)
         # if count_back >= 5:
         # 1 / 0
         frames.append(frame)
         features = frame.features()
         prev_count += 1
         if maximum_features is None:
+            minimum_features = features
             maximum_features = features
             avg_features = features
             std_features = features * features
         else:
+            # let min be any non zero
+            for i, (new, min_f) in enumerate(zip(features, minimum_features)):
+                if min_f == 0:
+                    minimum_features[i] = new
+                elif new != 0 and new < min_f:
+                    minimum_features[i] = new
+            # minimum_features = np.minimum(features, minimum_features)
             maximum_features = np.maximum(features, maximum_features)
             # Aggregate
             avg_features += features
@@ -133,18 +272,148 @@ def process_track(
     # Compute statistics for all tracks that have the min required duration
     valid_counter = 0
     N = track.num_frames - np.array(
-        [0, 0, 0, 0, 0, 1, 1, 1, 1, 3, 3, 3, 3, 5, 5, 5, 5]
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            3,
+            3,
+            3,
+            3,
+            5,
+            5,
+            5,
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]
     )  # Normalise each measure by however many samples went into it
     avg_features /= N
-    std_features = np.sqrt(std_features / N - avg_features**2)
+    std_features = np.sqrt(std_features / N - avg_features ** 2)
+    diff_features = maximum_features - minimum_features
     # gp better check this
+
+    birst_features = calculate_burst_features(frames)
     X = np.hstack(
-        (avg_features, std_features, maximum_features, np.array([track.num_frames]))
+        (
+            avg_features,
+            std_features,
+            maximum_features,
+            minimum_features,
+            diff_features,
+            birst_features,
+            np.array([track.num_frames]),
+        )
     )
-    #
-    # for a in X:
-    #     print(a)
+    # debug_features(X)
+    # 1 / 0
     return X, track.label
+
+
+def debug_features(X):
+    # for frame in frames:
+    EXTRA = ["avg", "std", "max", "min", "diff"]
+    other_l = EXTRA[0]
+    other_i = 0
+    for i, a in enumerate(X):
+        index = i % len(FEAT_LABELS)
+        if index == 0:
+            if other_i >= len(EXTRA):
+                break
+            other_l = EXTRA[other_i]
+            other_i += 1
+            print("SPLIT\n\n", other_l)
+        print(other_l, FEAT_LABELS[index], " - ", a)
+
+    for i, a in enumerate(X[-len(EXTRA_FEATURES) :]):
+        print(EXTRA_FEATURES[i], a)
+
+
+def calculate_burst_features(frames):
+    #
+    avg_speeds = np.array([f.speed[0] for f in frames])
+    mean_speed = np.mean(avg_speeds)
+    cut_off = max(2, (1 + mean_speed))
+    speed_above = len([f for f in frames if f.speed[0] > cut_off])
+    speed_below = len([f for f in frames if f.speed[0] <= cut_off])
+
+    burst_frames = 0
+    burst_ratio = []
+    burst_history = []
+    total_birst_frames = 0
+    low_speed_distance = 0
+    high_speed_distance = 0
+    for i, frame in enumerate(frames):
+        if frame.speed[0] < cut_off:
+            low_speed_distance += frame.speed[0]
+        else:
+            high_speed_distance += frame.speed[0]
+        if i > 0:
+            prev = frames[i - 1]
+            if prev.speed[0] > cut_off and frame.speed[0] > cut_off:
+                burst_frames += 1
+            else:
+                if burst_frames > 0:
+                    burst_start = i - burst_frames - 1
+                    if len(burst_history) > 0:
+                        # length of non burst frames is from previous burst end
+                        prev = burst_history[-1]
+                        burst_start -= prev[0] + prev[1]
+                    burst_history.append((i - burst_frames - 1, burst_frames + 1))
+                    burst_ratio.append(burst_start / (burst_frames + 1))
+                    total_birst_frames += burst_frames + 1
+                    burst_frames = 0
+    burst_ratio = np.array(burst_ratio)
+    if speed_above == 0:
+        speed_ratio = 0
+        speed_distance_ratio = 0
+    else:
+        speed_distance_ratio = low_speed_distance / high_speed_distance
+        speed_ratio = speed_below / speed_above
+
+    if len(burst_ratio) == 0:
+        burst_min = 0
+        burst_max = 0
+        burst_mean = 0
+    else:
+        burst_min = np.amin(burst_ratio)
+        burst_max = np.amax(burst_ratio)
+        burst_mean = np.mean(burst_ratio)
+    burst_chance = len(burst_ratio) / len(frames)
+    burst_per_frame = total_birst_frames / len(frames)
+    return np.array(
+        [
+            speed_distance_ratio,
+            speed_ratio,
+            burst_min,
+            burst_max,
+            burst_mean,
+            burst_chance,
+            burst_per_frame,
+        ]
+    )
 
 
 def process_sequence(

@@ -20,6 +20,7 @@ import sys
 import argparse
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import make_scorer
+from utils import FEAT_LABELS, EXTRA_FEATURES
 
 data_folder = r""
 
@@ -32,71 +33,20 @@ MAX_TREE_DEPTH = 40  # Maximum tree depth. Values between 4 and 8 seem OK, with 
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
 MIN_SAMPLES_SPLIT = 2  # Default 2
 MIN_SAMPLES_LEAF = 2  # Default 1
-MAX_FEATURES = 8  # Defauilt is sqrt of features (sqrt(52))
+MAX_FEATURES = 14  # Defauilt is sqrt of features (sqrt(52))
+EXTRA = ["avg", "std", "max", "min", "diff"]
 
-
-# More hardcoded nastiness!
-FEAT_LABELS = [
-    "avg_sqrt_area",
-    "avg_elongation",
-    "avg_peak_snr",
-    "avg_mean_snr",
-    "avg_fill_factor",
-    "avg_move_1",
-    "avg_rel_move_1",
-    "avg_rel_x_move_1",
-    "avg_rel_y_move_1",
-    "avg_move_3",
-    "avg_rel_move_3",
-    "avg_rel_x_move_3",
-    "avg_rel_y_move_3",
-    "avg_move_5",
-    "avg_rel_move_5",
-    "avg_rel_x_move_5",
-    "avg_rel_y_move_5",
-    "std_sqrt_area",
-    "std_elongation",
-    "std_peak_snr",
-    "std_mean_snr",
-    "std_fill_factor",
-    "std_move_1",
-    "std_rel_move_1",
-    "std_rel_x_move_1",
-    "std_rel_y_move_1",
-    "std_move_3",
-    "std_rel_move_3",
-    "std_rel_x_move_3",
-    "std_rel_y_move_3",
-    "std_move_5",
-    "std_rel_move_5",
-    "std_rel_x_move_5",
-    "std_rel_y_move_5",
-    "max_sqrt_area",
-    "max_elongation",
-    "max_peak_snr",
-    "max_mean_snr",
-    "max_fill_factor",
-    "max_move_1",
-    "max_rel_move_1",
-    "max_rel_x_move_1",
-    "max_rel_y_move_1",
-    "max_move_3",
-    "max_rel_move_3",
-    "max_rel_x_move_3",
-    "max_rel_y_move_3",
-    "max_move_5",
-    "max_rel_move_5",
-    "max_rel_x_move_5",
-    "max_rel_y_move_5",
-    "track_length",
-]
-
+ALL_FEATURES = []
+for extra_lbl in EXTRA:
+    for f in FEAT_LABELS:
+        ALL_FEATURES.append(f"{extra_lbl}-{f}")
+ALL_FEATURES.extend(EXTRA_FEATURES)
 
 groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
     ["bird", "bird/kiwi", "penguin"],
     ["human", "false-positive", "insect"],
-    ["vehicle"],
+    # ["vehicle"],
 ]
 
 
@@ -394,6 +344,13 @@ def train(args):
             "confusion_matrix_confident": confusion_matrix_confident.tolist(),
             "confusion": confusion_matrix.tolist(),
             "time": time.time(),
+            "hyperparams": {
+                "num_trees": NUM_TREES,
+                "max_tree_depth": MAX_TREE_DEPTH,
+                "min_samples_split": MIN_SAMPLES_SPLIT,
+                "min_smaples_leaf": MIN_SAMPLES_LEAF,
+                "max_features": MAX_FEATURES,
+            },
         }
         meta_file = args.save_file.with_suffix(".txt")
         with open(meta_file.resolve(), "w") as f:
@@ -446,15 +403,13 @@ def show_features(model):
     feat_import = model.feature_importances_
 
     print("Feature importances:")
-    for i in range(len(FEAT_LABELS)):
-        print(f"{i+1:3}   {FEAT_LABELS[i]:20} {100*feat_import[i]:.1f}%")
+    for i in range(len(ALL_FEATURES)):
+        print(f"{i+1:3}   {ALL_FEATURES[i]:20} {100*feat_import[i]:.1f}%")
 
-    inds = np.argsort(feat_import)
+    inds = np.argsort(feat_import)[::-1]
     print("Feature importances (ranked):")
-    for i in range(len(FEAT_LABELS)):
-        print(
-            f"{i+1:3}   {FEAT_LABELS[inds[-1-i]]:20} {100*feat_import[inds[-1-i]]:.1f}%"
-        )
+    for i, index in enumerate(inds):
+        print(f"{i+1:3}   {ALL_FEATURES[index]:20} {100*feat_import[index]:.1f}%")
 
 
 def main():
