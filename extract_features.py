@@ -118,7 +118,7 @@ def process(db):
                 continue
             has_nan = np.isnan(X).any()
             if has_nan:
-                Print("Skipping for nans", track_header.unique_id)
+                print("Skipping for nans", track_header.unique_id)
                 continue
             x_data.append(X)
             y_data.append(y)

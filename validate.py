@@ -21,6 +21,9 @@ import argparse
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import make_scorer
 from utils import FEAT_LABELS, EXTRA_FEATURES
+from sklearn.inspection import permutation_importance
+from sklearn.utils import shuffle
+from collections import Counter
 
 data_folder = r""
 
@@ -46,7 +49,7 @@ groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
     ["bird", "bird/kiwi", "penguin"],
     ["human", "false-positive", "insect"],
-    # ["vehicle"],
+    ["vehicle"],
 ]
 
 
@@ -274,7 +277,9 @@ def train(args):
     predicted_classes = np.empty([0], dtype=int)
     predicted_prob = np.empty([0, num_classes])
     fold = 0
-    for train_index, test_index in kfold.split(X, y, I):
+    X_shuffled, y_shuffled, groups_shuffled = shuffle(X, y, I, random_state=0)
+
+    for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
         fold += 1
         print(f"Cross validating, fold {fold} of {NUM_FOLDS}...")
@@ -326,10 +331,27 @@ def train(args):
             )
             plt.grid()
             plt.show()
+    if args.permutation:
+        test_i = int(len(X_shuffled) * 0.8)
+        train_X = X_shuffled[:test_i]
+        train_y = y_shuffled[:test_i]
+
+        test_X = X_shuffled[test_i:]
+        test_y = y_shuffled[test_i:]
+        model.fit(train_X, train_y)
+        r = permutation_importance(model, test_X, test_y, n_repeats=1, random_state=0)
+
+        for i in r.importances_mean.argsort()[::-1]:
+            if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                print(
+                    f"{ALL_FEATURES[i]:<8}"
+                    f"{r.importances_mean[i]:.3f}"
+                    f" +/- {r.importances_std[i]:.3f}"
+                )
 
     if args.show_features or args.save_file:
         print("Fitting to all data")
-        model.fit(X, y)
+        model.fit(X_shuffled, y_shuffled)
 
     if args.show_features:
         show_features(model)
@@ -428,6 +450,13 @@ def parse_args():
         default="train-new.pickle",
         # type=str,
         help="Location of trianing data pickle file",
+    )
+    parser.add_argument(
+        "-p",
+        "--permutation",
+        action="count",
+        # type=str,
+        help="Show permutation features",
     )
     parser.add_argument(
         "-f",
