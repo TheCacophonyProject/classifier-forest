@@ -52,7 +52,24 @@ groups = [
     ["vehicle"],
 ]
 
-
+groups = [
+    [
+        "rodent",
+        "mustelid",
+        "leporidae",
+        "hedgehog",
+        "possum",
+        "cat",
+        "wallaby",
+        "pest",
+        "bird",
+        "bird/kiwi",
+        "penguin",
+        "human",
+        "vehicle",
+    ],
+    ["false-positive", "insect"],
+]
 # groups = [
 # ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
 # ["bird", "bird/kiwi", "penguin"],
@@ -63,7 +80,7 @@ groups = [
 
 
 group_labels = ["pests", "birds", "FP", "vehicle"]
-
+group_labels = ["all", "FP"]
 
 # TODO
 def evaluate(model, test_features, test_labels):
@@ -257,6 +274,13 @@ def load_data(data_file, groups):
     return X, y, I, counts, num_classes
 
 
+def feature_mask():
+    mask = np.arange(len(ALL_FEATURES))
+    mask = mask == -1
+    print(mask)
+    return mask
+
+
 def train(args):
     X, y, I, counts, num_classes = load_data(args.data_file, groups)
     num_samples = X.shape[0]
@@ -278,6 +302,16 @@ def train(args):
     predicted_prob = np.empty([0, num_classes])
     fold = 0
     X_shuffled, y_shuffled, groups_shuffled = shuffle(X, y, I, random_state=0)
+
+    subset = 20000
+    X_shuffled = X_shuffled[:subset]
+    y_shuffled = y_shuffled[:subset]
+    groups_shuffled = groups_shuffled[:subset]
+    f_mask = feature_mask()
+    for i, x in enumerate(X_shuffled):
+        x[f_mask] = 0
+        X_shuffled[i] = x
+        # print("masked", x)
 
     for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
@@ -311,26 +345,26 @@ def train(args):
     )
 
     # ROC curves (only available for binary classification)
-    if num_classes == 2:
-
-        # All predictions
-        for i in range(2):
-            RocCurveDisplay.from_predictions(
-                actual_classes, predicted_prob[:, i], pos_label=i, name="ROC curve"
-            )
-            plt.grid()
-            plt.show()
-
-        # Ignoring low probabilities
-        for i in range(2):
-            RocCurveDisplay.from_predictions(
-                actual_classes_masked,
-                predicted_prob_masked[:, i],
-                pos_label=i,
-                name="ROC curve (masked)",
-            )
-            plt.grid()
-            plt.show()
+    # if num_classes == 2:
+    #
+    #     # All predictions
+    #     for i in range(2):
+    #         RocCurveDisplay.from_predictions(
+    #             actual_classes, predicted_prob[:, i], pos_label=i, name="ROC curve"
+    #         )
+    #         plt.grid()
+    #         plt.show()
+    #
+    #     # Ignoring low probabilities
+    #     for i in range(2):
+    #         RocCurveDisplay.from_predictions(
+    #             actual_classes_masked,
+    #             predicted_prob_masked[:, i],
+    #             pos_label=i,
+    #             name="ROC curve (masked)",
+    #         )
+    #         plt.grid()
+    #         plt.show()
     if args.permutation:
         test_i = int(len(X_shuffled) * 0.8)
         train_X = X_shuffled[:test_i]
@@ -339,12 +373,11 @@ def train(args):
         test_X = X_shuffled[test_i:]
         test_y = y_shuffled[test_i:]
         model.fit(train_X, train_y)
-        r = permutation_importance(model, test_X, test_y, n_repeats=1, random_state=0)
-
+        r = permutation_importance(model, test_X, test_y, n_repeats=5, random_state=0)
         for i in r.importances_mean.argsort()[::-1]:
             if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                 print(
-                    f"{ALL_FEATURES[i]:<8}"
+                    f"{ALL_FEATURES[i]:<8} "
                     f"{r.importances_mean[i]:.3f}"
                     f" +/- {r.importances_std[i]:.3f}"
                 )

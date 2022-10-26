@@ -46,6 +46,7 @@ FEAT_LABELS = [
     "max_rel_speed_y",
     "min_rel_speed_y",
     "avg_rel_speed_y",
+    "hist_diff",
 ]
 EXTRA_FEATURES = [
     "speed_distance_ratio",
@@ -72,6 +73,7 @@ class Frame:
         self.speed_x = np.zeros(BUFF_LEN)
         self.speed_y = np.zeros(BUFF_LEN)
         self.speed = np.zeros(BUFF_LEN)
+        self.histogram_diff = 0
 
     def calculate(self, thermal, sub_back):
         self.thermal_max = np.amax(thermal)
@@ -99,6 +101,53 @@ class Frame:
         self.peak_snr = (self.thermal_max - np.mean(sub_back)) / self.std_back
         self.mean_snr = self.thermal_std / self.std_back
         self.fill_factor = np.sum(filtered) / area
+
+    def histogram(self, sub_back, crop_t):
+        max_v = np.amax(sub_back)
+        min_v = np.amin(sub_back)
+        sub_back = (np.float32(sub_back) - min_v) / (max_v - min_v)
+        max_v = np.amax(crop_t)
+        min_v = np.amin(crop_t)
+        crop_t = (np.float32(crop_t) - min_v) / (max_v - min_v)
+
+        sub_back *= 255
+        crop_t *= 255
+
+        # sub_back = np.uint8(sub_back)
+        # crop_t = np.uint8(crop_t)
+        sub_back = sub_back[..., np.newaxis]
+        crop_t = crop_t[..., np.newaxis]
+        h_bins = 50
+        histSize = [h_bins]
+        channels = [0]
+
+        hist_base = cv2.calcHist(
+            [sub_back],
+            channels,
+            None,
+            histSize,
+            [0, 255],
+            accumulate=False,
+        )
+        cv2.normalize(hist_base, hist_base, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+        hist_track = cv2.calcHist(
+            [crop_t],
+            channels,
+            None,
+            histSize,
+            [0, 255],
+            accumulate=False,
+        )
+        # print(hist_track)
+        cv2.normalize(
+            hist_track,
+            hist_track,
+            alpha=0,
+            beta=1,
+            norm_type=cv2.NORM_MINMAX,
+        )
+        self.histogram_diff = cv2.compareHist(hist_base, hist_track, 0)
 
     def features(self):
         non_zero = np.array([s for s in self.speed if s > 0])
@@ -192,6 +241,7 @@ class Frame:
                 max_rel_speed_y,
                 min_rel_speed_y,
                 avg_rel_speed_y,
+                self.histogram_diff,
             ]
         )
 
@@ -223,13 +273,23 @@ def process_track(
             prev_count = 0
             continue
 
-        sub_back = region.subimage(background)
+        sub_back = region.subimage(background).copy()
+        max_v = np.amax(background)
+        min_v = np.amin(background)
+        norm_back = (np.float32(background) - min_v) / (max_v - min_v)
+        norm_back *= 255
+
+        frame = Frame(region)
+        # print("max b", np.amax(background))
+        # cv2.imshow("background is", np.uint8(norm_back))
+        # cv2.waitKey(10000)
+        # break
+        frame.histogram(sub_back, f)
         # median has been rounded from db so slight difference compared to doing from cptv
         median = np.float64(track.frame_temp_median[f_count])
         f_count += 1
         f = np.float64(f)
         f = f + np.median(background) - median
-        frame = Frame(region)
 
         frame.calculate(f, sub_back)
         count_back = min(BUFF_LEN, prev_count)
@@ -308,10 +368,11 @@ def process_track(
             0,
             0,
             0,
+            0,
         ]
     )  # Normalise each measure by however many samples went into it
     avg_features /= N
-    std_features = np.sqrt(std_features / N - avg_features ** 2)
+    std_features = np.sqrt(std_features / N - avg_features**2)
     diff_features = maximum_features - minimum_features
     # gp better check this
 
@@ -327,8 +388,6 @@ def process_track(
             np.array([track.num_frames]),
         )
     )
-    # debug_features(X)
-    # 1 / 0
     return X, track.label
 
 

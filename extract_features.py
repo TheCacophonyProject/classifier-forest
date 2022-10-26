@@ -104,7 +104,7 @@ def process(db):
             if filter_track(clip_meta, track_meta):
                 continue
             track_header = TrackHeader.from_meta(clip_id, clip_meta, track_meta)
-            # if track_header.label != "possum":
+            # if track_header.label != "false-positive":
             # continue
             if track_header is None:
                 print("bad data")
@@ -133,7 +133,6 @@ def process(db):
         "I": np.array(groups),
         "ids": np.array(ids),
     }
-    print("Filtered", FILTERED_STATS)
     with open("train-new.pickle", "wb") as f:
         pickle.dump(train, f, pickle.HIGHEST_PROTOCOL)
 
