@@ -45,6 +45,34 @@ for extra_lbl in EXTRA:
         ALL_FEATURES.append(f"{extra_lbl}-{f}")
 ALL_FEATURES.extend(EXTRA_FEATURES)
 
+important_features = [
+    "std-fill_factor",
+    "max-peak_snr",
+    "std-move_1",
+    "max-fill_factor",
+    "std-hist_diff",
+    "diff-hist_diff",
+    "max-hist_diff",
+    "min-hist_diff",
+    "diff-fill_factor",
+    "max-avg_sqrt_area",
+    "std-mean_snr",
+    "max-min_rel_speed",
+    "min-fill_factor",
+    "std-rel_move_1",
+    "diff-rel_x_move_1",
+    "diff-move_1",
+    "std-avg_sqrt_area",
+    "avg-move_3",
+    "diff-elongation",
+    "diff-move_5",
+    "std-min_speed_x",
+    "max-max_speed_x",
+    "avg-max_speed_y",
+    "max-elongation",
+    "diff-move_3",
+    "max-rel_x_move_3",
+]
 groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
     ["bird", "bird/kiwi", "penguin"],
@@ -276,8 +304,13 @@ def load_data(data_file, groups):
 
 def feature_mask():
     mask = np.arange(len(ALL_FEATURES))
-    mask = mask == -1
-    print(mask)
+    mask = mask != -1
+    feature_indexes = []
+    for f in important_features:
+        feature_indexes.append(ALL_FEATURES.index(f))
+        print("filtering", f)
+    feature_indexes = np.array(feature_indexes)
+    mask[feature_indexes] = False
     return mask
 
 
@@ -308,6 +341,7 @@ def train(args):
     y_shuffled = y_shuffled[:subset]
     groups_shuffled = groups_shuffled[:subset]
     f_mask = feature_mask()
+
     for i, x in enumerate(X_shuffled):
         x[f_mask] = 0
         X_shuffled[i] = x
