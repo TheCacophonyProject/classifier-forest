@@ -11,7 +11,7 @@ import numpy as np
 
 BUFF_LEN = 5
 FEAT_LABELS = [
-    "avg_sqrt_area",
+    "sqrt_area",
     "elongation",
     "peak_snr",
     "mean_snr",
@@ -331,7 +331,7 @@ def process_track(
 
     # Compute statistics for all tracks that have the min required duration
     valid_counter = 0
-    N = track.num_frames - np.array(
+    N = f_count - np.array(
         [
             0,
             0,

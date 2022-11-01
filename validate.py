@@ -308,7 +308,7 @@ def feature_mask():
     feature_indexes = []
     for f in important_features:
         feature_indexes.append(ALL_FEATURES.index(f))
-        print("filtering", f)
+        print("using", f)
     feature_indexes = np.array(feature_indexes)
     mask[feature_indexes] = False
     return mask
@@ -352,8 +352,8 @@ def train(args):
         fold += 1
         print(f"Cross validating, fold {fold} of {NUM_FOLDS}...")
 
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+        X_train, X_test = X_shuffled[train_index], X_shuffled[test_index]
+        y_train, y_test = y_shuffled[train_index], y_shuffled[test_index]
 
         model.fit(X_train, y_train)
 
