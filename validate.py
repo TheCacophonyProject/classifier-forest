@@ -311,7 +311,8 @@ def feature_mask():
         print("using", f)
     feature_indexes = np.array(feature_indexes)
     mask[feature_indexes] = False
-    return mask
+    return feature_indexes
+    # mask
 
 
 def train(args):
@@ -336,17 +337,13 @@ def train(args):
     fold = 0
     X_shuffled, y_shuffled, groups_shuffled = shuffle(X, y, I, random_state=0)
 
-    subset = 20000
-    X_shuffled = X_shuffled[:subset]
-    y_shuffled = y_shuffled[:subset]
-    groups_shuffled = groups_shuffled[:subset]
+    # subset = 20000
+    # X_shuffled = X_shuffled[:subset]
+    # y_shuffled = y_shuffled[:subset]
+    # groups_shuffled = groups_shuffled[:subset]
     f_mask = feature_mask()
-
-    for i, x in enumerate(X_shuffled):
-        x[f_mask] = 0
-        X_shuffled[i] = x
-        # print("masked", x)
-
+    X_shuffled = np.take(X_shuffled, f_mask, axis=1)
+    ALL_FEATURES = important_features
     for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
         fold += 1
