@@ -233,6 +233,8 @@ def load_data(data_file, groups):
     train["X"] = train["X"][mask, :]
     train["Y"] = train["Y"][mask]
     train["I"] = train["I"][mask]
+    train["ids"] train["ids"][mask]
+
     print(f"Keeping {100*np.mean(mask):.1f}% of samples based on max size")
 
     X = train["X"]
@@ -283,7 +285,7 @@ def load_data(data_file, groups):
         other_labels = set(y[mask])
         y[mask] = len(groups) - 1
         num_classes += 1
-    return X, y, I, counts, num_classes
+    return X, y, I, counts, num_classes,train["ids"]
 
 
 def show_confusion(group_labels, actual_classes, predicted_classes, num_samples):
@@ -336,7 +338,7 @@ def feature_mask():
 def accuracy(data_file, model_file):
     meta_file = model_file.with_suffix(".txt")
     hyper_params = json.load(open(meta_file, "r"))
-    X, y, I, counts, num_classes = load_data(data_file, hyper_params["groups"])
+    X, y, I, counts, num_classes,ids = load_data(data_file, hyper_params["groups"])
     f_mask = feature_mask()
     X = np.take(X, f_mask, axis=1)
     global ALL_FEATURES
@@ -357,10 +359,15 @@ def accuracy(data_file, model_file):
     actual_classes_masked = y[mask]
     predicted_classes_masked = predicted_classes[mask]
     predicted_prob_masked = predicted_prob[mask]
+    ids_masked = y[mask]
     print("REJECT LOW CONFIDENCE     P R E D I C T E D")
     confusion_matrix_confident = show_confusion(
         hyper_params["labels"], actual_classes_masked, predicted_classes_masked, num_samples
     )
+
+    for y, predicted, id in zip(actual_classes_masked,predicted_classes_masked,ids_masked):
+        if y != predicted:
+            print("Thinks",y, " is " ,predicted, " clipid", id)
 
 def main():
     init_logging()
