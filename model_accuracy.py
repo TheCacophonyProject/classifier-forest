@@ -319,11 +319,28 @@ def show_confusion(group_labels, actual_classes, predicted_classes, num_samples)
         print(f"{s:9}", end="")
     print(f" | {num_samples:9}")
     return confusion_matrix
+
+
+def feature_mask():
+    mask = np.arange(len(ALL_FEATURES))
+    mask = mask != -1
+    feature_indexes = []
+    for f in important_features:
+        feature_indexes.append(ALL_FEATURES.index(f))
+        print("using", f)
+    feature_indexes = np.array(feature_indexes)
+    mask[feature_indexes] = False
+    return feature_indexes
+    # mask
+
 def accuracy(data_file, model_file):
     meta_file = model_file.with_suffix(".txt")
     hyper_params = json.load(open(meta_file, "r"))
     X, y, I, counts, num_classes = load_data(data_file, hyper_params["groups"])
-
+    f_mask = feature_mask()
+    X = np.take(X, f_mask, axis=1)
+    global ALL_FEATURES
+    ALL_FEATURES = important_features
     model = joblib.load(model_file)
     predicted_classes = model.predict(X)
     predicted_prob = model.predict_proba(
