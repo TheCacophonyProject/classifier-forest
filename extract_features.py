@@ -16,6 +16,7 @@ from pathlib import Path
 
 from trackdatabase import TrackDatabase
 from datasetstructures import TrackHeader
+from dateutil.parser import parse as parse_date
 
 FILTERED_STATS = {
     "confidence": 0,
@@ -86,8 +87,8 @@ INCLUDED_LABELS = None  # include all
 #
 
 
-def process(db):
-    clips = db.get_all_clip_ids()
+def process(db, after_date=None):
+    clips = db.get_all_clip_ids(after_date=after_date)
     x_data = []
     y_data = []
     groups = []
@@ -218,7 +219,7 @@ def main():
         process_cptv(args.cptv)
     else:
         db = TrackDatabase(str(args.db_file), read_only=True)
-        process(db)
+        process(db, args.date)
 
 
 def parse_args():
@@ -235,7 +236,12 @@ def parse_args():
         # type=str,
         help="Location of cptv file",
     )
+    parser.add_argument("-d", "--date", help="Use clips after this")
+
     args = parser.parse_args()
+    if args.date:
+        args.date = parse_date(args.date)
+
     args.db_file = Path(args.db_file)
     return args
 
