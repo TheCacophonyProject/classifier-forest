@@ -36,7 +36,7 @@ MAX_TREE_DEPTH = 40  # Maximum tree depth. Values between 4 and 8 seem OK, with 
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
 MIN_SAMPLES_SPLIT = 2  # Default 2
 MIN_SAMPLES_LEAF = 2  # Default 1
-MAX_FEATURES = 14  # Defauilt is sqrt of features (sqrt(52))
+MAX_FEATURES = 6  # Defauilt is sqrt of features (sqrt(52))
 EXTRA = ["avg", "std", "max", "min", "diff"]
 
 ALL_FEATURES = []
@@ -81,31 +81,130 @@ important_features = [
     "std-fill_factor",
     "max-min_rel_speed",
 ]
+important_features = [
+    "speed_distance_ratio ",
+    "max-peak_snr ",
+    "diff-peak_snr ",
+    "max-sqrt_area ",
+    "std-fill_factor ",
+    "diff-sqrt_area ",
+    "std-peak_snr ",
+    "avg-hist_diff ",
+    "std-rel_y_move_1 ",
+    "max-elongation ",
+    "diff-elongation ",
+    "std-move_1 ",
+    "max-mean_snr ",
+    "min-hist_diff ",
+    "diff-hist_diff ",
+    "max-fill_factor ",
+    "burst_min ",
+    "diff-mean_snr ",
+    "std-mean_snr ",
+    "std-elongation ",
+    "diff-fill_factor ",
+    "std-move_5 ",
+    "std-hist_diff ",
+    "max-rel_y_move_1 ",
+    "max-hist_diff ",
+    "std-sqrt_area ",
+    "diff-min_rel_speed_x ",
+    "std-max_speed_x ",
+    "diff-move_5 ",
+    "std-rel_y_move_5 ",
+    "max-min_rel_speed_x ",
+    "std-rel_move_1 ",
+    "burst_chance ",
+    "diff-rel_x_move_1 ",
+    "std-avg_speed ",
+    "std-min_speed ",
+    "min-mean_snr ",
+    "diff-min_rel_speed ",
+    "std-min_speed_x ",
+    "max-min_rel_speed ",
+    "burst_per_frame ",
+    "std-rel_x_move_1 ",
+    "std-rel_move_5 ",
+    "diff-rel_y_move_1 ",
+    "max-rel_move_1 ",
+    "std-min_rel_speed_y ",
+    "diff-max_speed ",
+    "birst_mean ",
+    "max-rel_x_move_1 ",
+    "max-max_speed ",
+    "diff-min_speed_x ",
+    "max-move_5 ",
+    "diff-max_speed_x ",
+    "std-min_rel_speed_x ",
+    "std-move_3 ",
+    "max-rel_x_move_3 ",
+    "std-rel_x_move_5 ",
+    "max-move_1 ",
+    "std-avg_rel_speed_y ",
+    "min-fill_factor ",
+    "max-rel_move_5 ",
+    "burst_max ",
+    "std-avg_rel_speed_x ",
+    "min-sqrt_area ",
+    "avg-sqrt_area ",
+    "max-rel_move_3 ",
+    "max-avg_speed_y ",
+    "diff-min_rel_speed_y ",
+    "avg-mean_snr ",
+    "speed_ratio ",
+    "diff-avg_rel_speed ",
+    "max-max_speed_y ",
+    "max-max_speed_x ",
+    "max-min_rel_speed_y ",
+    "avg-fill_factor ",
+    "diff-rel_x_move_3 ",
+    "avg-max_rel_speed ",
+    "diff-rel_move_3 ",
+    "diff-rel_move_5 ",
+    # very close to 0
+    "max-max_rel_speed ",
+    "min-max_speed_x ",
+    "diff-move_3 ",
+    "min-rel_move_5 ",
+    "avg-rel_move_5 ",
+    "std-rel_y_move_3 ",
+    "avg-max_speed_y ",
+    "avg-rel_y_move_5 ",
+    "total frames ",
+    "std-max_rel_speed ",
+    "min-move_5 ",
+    "avg-avg_rel_speed ",
+    "max-move_3 ",
+    "diff-min_speed_y ",
+    "diff-avg_speed ",
+    "avg-max_speed_x ",
+    "max-rel_y_move_3 ",
+]
 groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
     ["bird", "bird/kiwi", "penguin"],
     ["human", "false-positive", "insect"],
     ["vehicle"],
 ]
-
-groups = [
-    [
-        "rodent",
-        "mustelid",
-        "leporidae",
-        "hedgehog",
-        "possum",
-        "cat",
-        "wallaby",
-        "pest",
-        "bird",
-        "bird/kiwi",
-        "penguin",
-        "human",
-        "vehicle",
-    ],
-    ["false-positive", "insect"],
-]
+#
+# groups = [
+#     [
+#         "rodent",
+#         "mustelid",
+#         "leporidae",
+#         "hedgehog",
+#         "possum",
+#         "cat",
+#         "wallaby",
+#         "pest",
+#         "bird",
+#         "bird/kiwi",
+#         "penguin",
+#         "human",
+#         "vehicle",
+#     ],
+#     ["false-positive", "insect"],
+# ]
 # groups = [
 # ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
 # ["bird", "bird/kiwi", "penguin"],
@@ -116,7 +215,7 @@ groups = [
 
 
 group_labels = ["pests", "birds", "FP", "vehicle"]
-group_labels = ["all", "FP"]
+# group_labels = ["all", "FP"]
 
 # TODO
 def evaluate(model, test_features, test_labels):
@@ -345,10 +444,10 @@ def train(args):
     fold = 0
     X_shuffled, y_shuffled, groups_shuffled = shuffle(X, y, I, random_state=0)
 
-    # subset = 20000
-    # X_shuffled = X_shuffled[:subset]
-    # y_shuffled = y_shuffled[:subset]
-    # groups_shuffled = groups_shuffled[:subset]
+    subset = 20000
+    X_shuffled = X_shuffled[:subset]
+    y_shuffled = y_shuffled[:subset]
+    groups_shuffled = groups_shuffled[:subset]
     f_mask = feature_mask()
     X_shuffled = np.take(X_shuffled, f_mask, axis=1)
     global ALL_FEATURES
