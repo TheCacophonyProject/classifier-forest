@@ -73,6 +73,14 @@ important_features = [
     "diff-move_3",
     "max-rel_x_move_3",
 ]
+important_features = [
+    "max-peak_snr",
+    "std-mean_snr",
+    "diff-move_1",
+    "std-move_1",
+    "std-fill_factor",
+    "max-min_rel_speed",
+]
 groups = [
     ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat", "wallaby", "pest"],
     ["bird", "bird/kiwi", "penguin"],
@@ -343,6 +351,7 @@ def train(args):
     # groups_shuffled = groups_shuffled[:subset]
     f_mask = feature_mask()
     X_shuffled = np.take(X_shuffled, f_mask, axis=1)
+    global ALL_FEATURES
     ALL_FEATURES = important_features
     for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
