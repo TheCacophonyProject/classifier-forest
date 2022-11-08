@@ -546,6 +546,7 @@ def train(args):
                 "min_samples_split": MIN_SAMPLES_SPLIT,
                 "min_smaples_leaf": MIN_SAMPLES_LEAF,
                 "max_features": MAX_FEATURES,
+                "features_used": important_features,
             },
         }
         meta_file = args.save_file.with_suffix(".txt")
