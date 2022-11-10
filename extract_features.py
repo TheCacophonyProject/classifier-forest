@@ -89,6 +89,7 @@ INCLUDED_LABELS = None  # include all
 
 def process(db, after_date=None):
     clips = db.get_all_clip_ids(after_date=after_date)
+    print("after date", after_date)
     x_data = []
     y_data = []
     groups = []

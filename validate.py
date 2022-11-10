@@ -71,6 +71,60 @@ important_features = [
     "diff-move_3",
     "max-rel_x_move_3",
 ]
+# with proper std
+important_features = [
+    "min-fill_factor",
+    "max-peak_snr",
+    "avg-fill_factor",
+    "avg-peak_snr",
+    "avg-hist_diff",
+    "diff-peak_snr",
+    "std-move_1",
+    "std-peak_snr",
+    "avg-elongation",
+    "avg-mean_snr",
+    "max-hist_diff",
+    "max-sqrt_area",
+    # long list
+    "diff-rel_move_1",
+    "max-fill_factor",
+    "diff-min_speed",
+    "min-hist_diff",
+    "min-elongation",
+    "min-mean_snr",
+    "diff-rel_y_move_5",
+    "avg-move_1",
+    "std-sqrt_area",
+    "std-hist_diff",
+    "max-rel_move_1",
+    "avg-sqrt_area",
+    "max-move_1",
+    "min-sqrt_area",
+    "avg-rel_move_5",
+    "min-min_speed",
+    "max-rel_x_move_1",
+    "max-rel_y_move_5",
+    "avg-rel_y_move_1",
+    "burst_chance",
+    "avg-rel_x_move_1",
+    "max-avg_speed_y",
+    "birst_mean",
+    "burst_max",
+    "diff-max_speed_y",
+    "min-min_speed_y",
+    "total frames",
+    "min-rel_x_move_5",
+    "std-min_rel_speed",
+    "min-avg_rel_speed",
+    "std-min_rel_speed_x",
+    "diff-avg_speed_y",
+    "diff-avg_speed",
+    "burst_per_frame",
+    "std-avg_rel_speed",
+    "min-rel_y_move_5",
+    "min-max_speed_x",
+    "max-min_rel_speed_y",
+]
 #
 # important_features = [
 #     "max-peak_snr",
@@ -214,7 +268,7 @@ groups = [
 # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
 # ]
 # about 14 for al features is good
-# MAX_FEATURES = 6  # Defauilt is sqrt of features (sqrt(52))
+MAX_FEATURES = "sqrt"  # Defauilt is sqrt of features (sqrt(52))
 
 group_labels = ["pests", "birds", "FP", "vehicle"]
 group_labels = ["all", "FP"]
@@ -436,7 +490,7 @@ def train(args):
         class_weight="balanced",
         min_samples_split=MIN_SAMPLES_SPLIT,
         min_samples_leaf=MIN_SAMPLES_LEAF,
-        # max_features=MAX_FEATURES,
+        max_features=MAX_FEATURES,
     )
     # Run cross-validation
     kfold = GroupKFold(n_splits=NUM_FOLDS)
