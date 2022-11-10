@@ -60,7 +60,7 @@ EXTRA_FEATURES = [
 ]
 
 
-class Frame:
+class FrameFeatures:
     def __init__(self, region):
         # self.thermal = thermal
         self.region = region
@@ -254,10 +254,9 @@ def process_track(
     ENLARGE_FACTOR=4,
     PLAYBACK_DELAY=1,
 ):
-    frames = []
+    frame_features = []
     minimum_features = None
     avg_features = None
-    std_features = None
     maximum_features = None
     f_count = 0
     prev_count = 0
@@ -266,6 +265,7 @@ def process_track(
     burst_frames = 0
     burst_history = []
     last_burst = 0
+    all_features = []
     if track.num_frames <= BUFF_LEN:
         return None, None
     for f, region in frame_data:
@@ -279,43 +279,44 @@ def process_track(
         norm_back = (np.float32(background) - min_v) / (max_v - min_v)
         norm_back *= 255
 
-        frame = Frame(region)
+        feature = FrameFeatures(region)
         # print("max b", np.amax(background))
         # cv2.imshow("background is", np.uint8(norm_back))
         # cv2.waitKey(10000)
         # break
-        frame.histogram(sub_back, f)
+        feature.histogram(sub_back, f)
         # median has been rounded from db so slight difference compared to doing from cptv
         median = np.float64(track.frame_temp_median[f_count])
         f_count += 1
         f = np.float64(f)
         f = f + np.median(background) - median
 
-        frame.calculate(f, sub_back)
+        feature.calculate(f, sub_back)
         count_back = min(BUFF_LEN, prev_count)
         for i in range(count_back):
-            prev = frames[-i - 1]
-            vel = frame.cent - prev.cent
-            frame.speed[i] = np.sqrt(np.sum(vel * vel))
-            frame.speed_x[i] = np.abs(vel[0])
-            frame.speed_y[i] = np.abs(vel[1])
+            prev = frame_features[-i - 1]
+            vel = feature.cent - prev.cent
+            feature.speed[i] = np.sqrt(np.sum(vel * vel))
+            feature.speed_x[i] = np.abs(vel[0])
+            feature.speed_y[i] = np.abs(vel[1])
 
-            frame.rel_speed[i] = frame.speed[i] / frame.sqrt_area
-            frame.rel_speed_x[i] = np.abs(vel[0]) / frame.sqrt_area
-            frame.rel_speed_y[i] = np.abs(vel[1]) / frame.sqrt_area
+            feature.rel_speed[i] = feature.speed[i] / feature.sqrt_area
+            feature.rel_speed_x[i] = np.abs(vel[0]) / feature.sqrt_area
+            feature.rel_speed_y[i] = np.abs(vel[1]) / feature.sqrt_area
         # cv2.imshow("F", np.uint8(f))
 
         # cv2.waitKey(100)
         # if count_back >= 5:
         # 1 / 0
-        frames.append(frame)
-        features = frame.features()
+        frame_features.append(feature)
+        features = feature.features()
+        all_features.append(features.copy())
+
         prev_count += 1
         if maximum_features is None:
-            minimum_features = features
-            maximum_features = features
-            avg_features = features
-            std_features = features * features
+            minimum_features = features.copy()
+            maximum_features = features.copy()
+            avg_features = features.copy()
         else:
             # let min be any non zero
             for i, (new, min_f) in enumerate(zip(features, minimum_features)):
@@ -327,7 +328,6 @@ def process_track(
             maximum_features = np.maximum(features, maximum_features)
             # Aggregate
             avg_features += features
-            std_features += features * features
 
     # Compute statistics for all tracks that have the min required duration
     valid_counter = 0
@@ -372,11 +372,9 @@ def process_track(
         ]
     )  # Normalise each measure by however many samples went into it
     avg_features /= N
-    std_features = np.sqrt(std_features / N - avg_features**2)
+    std_features = np.sqrt(np.sum((all_features - avg_features) ** 2, axis=0) / N)
     diff_features = maximum_features - minimum_features
-    # gp better check this
-
-    birst_features = calculate_burst_features(frames)
+    burst_features = calculate_burst_features(frame_features)
     X = np.hstack(
         (
             avg_features,
@@ -384,7 +382,7 @@ def process_track(
             maximum_features,
             minimum_features,
             diff_features,
-            birst_features,
+            burst_features,
             np.array([track.num_frames]),
         )
     )
