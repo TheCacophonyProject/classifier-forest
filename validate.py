@@ -257,6 +257,7 @@ groups = [
         "penguin",
         "human",
         "vehicle",
+        "dog",
     ],
     ["false-positive", "insect"],
 ]
