@@ -11,6 +11,7 @@ import os
 import numpy as np
 import pickle
 import sys
+import utilsshort
 import utils
 from pathlib import Path
 
@@ -114,7 +115,7 @@ def process(db, after_date=None):
             print(clip_id, "Track ", track_header.track_id, track_header.label)
 
             frames = db.get_track(clip_id, track_meta["id"], channels=0)
-            X, y = utils.process_track(track_header, frames, background)
+            X, y = utilsshort.process_track(track_header, frames, background)
             if X is None:
                 print("Didn't use", track_header.unique_id)
                 continue
@@ -122,9 +123,11 @@ def process(db, after_date=None):
             if has_nan:
                 print("Skipping for nans", track_header.unique_id)
                 continue
-            x_data.append(X)
-            y_data.append(y)
-            groups.append(counter)
+            x_data.extend(X)
+            y = [y] * len(X)
+            print(y)
+            y_data.extend(y)
+            groups.extend([counter] * len(X))
             ids.append(track_header.unique_id)
             if track_header.label in label_counts:
                 label_counts[track_header.label] += 1
