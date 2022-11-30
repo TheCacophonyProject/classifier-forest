@@ -125,7 +125,6 @@ def process(db, after_date=None):
                 continue
             x_data.extend(X)
             y = [y] * len(X)
-            print(y)
             y_data.extend(y)
             groups.extend([counter] * len(X))
             ids.append(track_header.unique_id)

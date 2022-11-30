@@ -256,18 +256,7 @@ def process_track(
     PLAYBACK_DELAY=1,
     segment_frame_spacing = 10,
 ):
-    frame_features = []
-    minimum_features = None
-    avg_features = None
-    maximum_features = None
-    f_count = 0
-    prev_count = 0
-    low_speed_distance = 0
-    high_speed_distance = 0
-    burst_frames = 0
-    burst_history = []
-    last_burst = 0
-    all_features = []
+
 
     data = []
     segment_count = max(1, len(all_data) // segment_frame_spacing)
@@ -283,6 +272,18 @@ def process_track(
         if len(frame_data)< segment_frames//2:
             break
         f_count = 0
+        frame_features = []
+        minimum_features = None
+        avg_features = None
+        maximum_features = None
+        f_count = 0
+        prev_count = 0
+        low_speed_distance = 0
+        high_speed_distance = 0
+        burst_frames = 0
+        burst_history = []
+        last_burst = 0
+        all_features = []
         for f, region in frame_data:
             if region.blank or region.width == 0 or region.height == 0:
                 prev_count = 0
