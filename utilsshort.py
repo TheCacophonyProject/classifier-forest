@@ -269,7 +269,7 @@ def process_track(
         frame_data = all_data[start:start+ segment_frames]
         medians = track.frame_temp_median[start:start+ segment_frames]
         start += segment_frame_spacing
-        if len(frame_data)< segment_frames//2:
+        if seg_i > 0 and len(frame_data)< segment_frames//2:
             break
         f_count = 0
         frame_features = []
