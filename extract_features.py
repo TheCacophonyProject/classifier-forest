@@ -89,11 +89,11 @@ INCLUDED_LABELS = None  # include all
 
 def process(db, after_date=None):
     clips = db.get_all_clip_ids(after_date=after_date)
-    print("after date", after_date)
     x_data = []
     y_data = []
     groups = []
     ids = []
+    label_counts = {}
     counter = 0
     for clip_id, tracks in clips.items():
         # if clip_id != "1020125" and clip_id != "1345135":
@@ -126,6 +126,11 @@ def process(db, after_date=None):
             y_data.append(y)
             groups.append(counter)
             ids.append(track_header.unique_id)
+            if track_header.label in label_counts:
+                label_counts[track_header.label] += 1
+            else:
+                label_counts[track_header.label] = 0
+
         counter += 1
         # break
     # Dump everything out to pickle file
@@ -134,6 +139,7 @@ def process(db, after_date=None):
         "Y": np.array(y_data),
         "I": np.array(groups),
         "ids": np.array(ids),
+        "label_counts": label_counts,
     }
     with open("train-new.pickle", "wb") as f:
         pickle.dump(train, f, pickle.HIGHEST_PROTOCOL)
