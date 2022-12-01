@@ -125,6 +125,28 @@ important_features = [
     "min-max_speed_x",
     "max-min_rel_speed_y",
 ]
+# mportant for IR
+important_features = [
+    "avg-hist_diff",
+    "max-elongation",
+    "avg-peak_snr",
+    "min-hist_diff",
+    "max-fill_factor",
+    "max-peak_snr",
+    "std-fill_factor",
+    "min-fill_factor",
+    "diff-mean_snr",
+    "avg-elongation",
+    "min-peak_snr",
+    "diff-elongation",
+    "diff-peak_snr",
+    "min-avg_rel_speed_y",
+    "diff-avg_rel_speed",
+    "avg-rel_x_move_3",
+    "burst_max",
+    "std-max_speed_y",
+    "burst_per_frame",
+]
 #
 # important_features = [
 #     "max-peak_snr",
