@@ -84,7 +84,6 @@ class FrameFeatures:
 
         if f_max > 0.0:
             filtered /= f_max
-
         # Calculate weighted centroid and second moments etc
         cent, extent, theta = intensity_weighted_moments(filtered, self.region)
 
@@ -113,9 +112,8 @@ class FrameFeatures:
 
             sub_back *= 255
             crop_t *= 255
-
-        # sub_back = np.uint8(sub_back)
-        # crop_t = np.uint8(crop_t)
+        sub_back = np.uint8(sub_back)
+        crop_t = np.uint8(crop_t)
         sub_back = sub_back[..., np.newaxis]
         crop_t = crop_t[..., np.newaxis]
         h_bins = 60
@@ -140,7 +138,6 @@ class FrameFeatures:
             [0, 255],
             accumulate=False,
         )
-        # print(hist_track)
         cv2.normalize(
             hist_track,
             hist_track,
@@ -261,7 +258,6 @@ def process_track(
     data = []
     segment_count = max(1, len(all_data) // segment_frame_spacing)
     segment_count = int(segment_count)
-
     if track.num_frames <= BUFF_LEN:
         return None, None
     start = 0
@@ -284,23 +280,18 @@ def process_track(
         burst_history = []
         last_burst = 0
         all_features = []
+        backgorund = np.uint8(background)
         back_med = np.median(background)
         for f, region in frame_data:
             if region.blank or region.width == 0 or region.height == 0:
                 prev_count = 0
                 continue
-
             f = f.copy()
             sub_back = region.subimage(background).copy()
             max_v = np.amax(background)
             min_v = np.amin(background)
-            norm_back = (np.float32(background) - min_v) / (max_v - min_v)
-            norm_back *= 255
+
             feature = FrameFeatures(region)
-            # print("max b", np.amax(background))
-            # cv2.imshow("background is", np.uint8(norm_back))
-            # cv2.waitKey(10000)
-            # break
             feature.histogram(sub_back, f)
             # median has been rounded from db so slight difference compared to doing from cptv
             median = np.float64(medians[f_count])
@@ -328,13 +319,13 @@ def process_track(
             frame_features.append(feature)
             features = feature.features()
             all_features.append(features.copy())
-
             prev_count += 1
             if maximum_features is None:
                 minimum_features = features.copy()
                 maximum_features = features.copy()
                 avg_features = features.copy()
             else:
+                maximum_features = np.maximum(features, maximum_features)
                 non_zero = features != 0
                 current_zero = minimum_features == 0
                 minimum_features[current_zero] = features[current_zero]
@@ -342,7 +333,6 @@ def process_track(
                     minimum_features[non_zero], features[non_zero]
                 )
                 # minimum_features = np.minimum(features, minimum_features)
-                maximum_features = np.maximum(features, maximum_features)
                 # Aggregate
                 avg_features += features
 
@@ -406,7 +396,6 @@ def process_track(
             )
         )
         data.append(X)
-    print("got", len(data), " for ", len(all_data))
     return data, track.label
 
 
@@ -809,7 +798,6 @@ def intensity_weighted_moments_old(sub, region=None):
 # Find centre of mass and size/orientation of the hot spot
 def intensity_weighted_moments(sub, region=None):
     tot = np.sum(sub)
-    # print(tot, "using", region)
     if tot <= 0.0:
         # Zero image - replace with ones so calculations can continue
         sub = np.ones(sub.shape)

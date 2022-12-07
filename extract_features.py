@@ -97,11 +97,12 @@ def process(db, after_date=None):
     label_counts = {}
     counter = 0
     for clip_id, tracks in clips.items():
-        # if clip_id != "1020125" and clip_id != "1345135":
-        # continue
+        # if clip_id != "4827" and clip_id != "1345135":
+        #     continue
         # print("Loading ", clip_id)
         clip_meta = db.get_clip_meta(clip_id)
         background = db.get_clip_background(clip_id)
+
         tracks = db.get_clip_tracks(clip_id)
         for track_meta in tracks:
             if filter_track(clip_meta, track_meta):
