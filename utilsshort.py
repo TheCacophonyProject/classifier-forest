@@ -332,8 +332,8 @@ def process_track(
             prev_count += 1
             if maximum_features is None:
                 minimum_features = features.copy()
-                maximum_features = features
-                avg_features = features
+                maximum_features = features.copy()
+                avg_features = features.copy()
             else:
                 non_zero = features != 0
                 current_zero = minimum_features == 0
@@ -348,6 +348,8 @@ def process_track(
 
         # Compute statistics for all tracks that have the min required duration
         valid_counter = 0
+        if f_count < 5:
+            continue
         N = f_count - np.array(
             [
                 0,
