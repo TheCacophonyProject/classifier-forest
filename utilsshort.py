@@ -102,22 +102,23 @@ class FrameFeatures:
         self.mean_snr = self.thermal_std / self.std_back
         self.fill_factor = np.sum(filtered) / area
 
-    def histogram(self, sub_back, crop_t):
-        max_v = np.amax(sub_back)
-        min_v = np.amin(sub_back)
-        sub_back = (np.float32(sub_back) - min_v) / (max_v - min_v)
-        max_v = np.amax(crop_t)
-        min_v = np.amin(crop_t)
-        crop_t = (np.float32(crop_t) - min_v) / (max_v - min_v)
+    def histogram(self, sub_back, crop_t, normalize=False):
+        if normalize:
+            max_v = np.amax(sub_back)
+            min_v = np.amin(sub_back)
+            sub_back = (np.float32(sub_back) - min_v) / (max_v - min_v)
+            max_v = np.amax(crop_t)
+            min_v = np.amin(crop_t)
+            crop_t = (np.float32(crop_t) - min_v) / (max_v - min_v)
 
-        sub_back *= 255
-        crop_t *= 255
+            sub_back *= 255
+            crop_t *= 255
 
         # sub_back = np.uint8(sub_back)
         # crop_t = np.uint8(crop_t)
         sub_back = sub_back[..., np.newaxis]
         crop_t = crop_t[..., np.newaxis]
-        h_bins = 50
+        h_bins = 60
         histSize = [h_bins]
         channels = [0]
 
@@ -250,13 +251,12 @@ def process_track(
     track,
     all_data,
     background,
-    segment_frames = 10*3,
+    segment_frames=10 * 3,
     FRAMES_PER_SEC=9.0,
     ENLARGE_FACTOR=4,
     PLAYBACK_DELAY=1,
-    segment_frame_spacing = 10,
+    segment_frame_spacing=10,
 ):
-
 
     data = []
     segment_count = max(1, len(all_data) // segment_frame_spacing)
@@ -266,10 +266,10 @@ def process_track(
         return None, None
     start = 0
     for seg_i in range(segment_count):
-        frame_data = all_data[start:start+ segment_frames]
-        medians = track.frame_temp_median[start:start+ segment_frames]
+        frame_data = all_data[start : start + segment_frames]
+        medians = track.frame_temp_median[start : start + segment_frames]
         start += segment_frame_spacing
-        if seg_i > 0 and len(frame_data)< segment_frames//2:
+        if seg_i > 0 and len(frame_data) < segment_frames // 2:
             break
         f_count = 0
         frame_features = []
@@ -284,6 +284,7 @@ def process_track(
         burst_history = []
         last_burst = 0
         all_features = []
+        back_med = np.median(background)
         for f, region in frame_data:
             if region.blank or region.width == 0 or region.height == 0:
                 prev_count = 0
@@ -305,7 +306,7 @@ def process_track(
             median = np.float64(medians[f_count])
             f_count += 1
             f = np.float64(f)
-            f = f + np.median(background) - median
+            f = f + back_med - median
 
             feature.calculate(f, sub_back)
             count_back = min(BUFF_LEN, prev_count)
@@ -331,15 +332,15 @@ def process_track(
             prev_count += 1
             if maximum_features is None:
                 minimum_features = features.copy()
-                maximum_features = features.copy()
-                avg_features = features.copy()
+                maximum_features = features
+                avg_features = features
             else:
-                # let min be any non zero
-                for i, (new, min_f) in enumerate(zip(features, minimum_features)):
-                    if min_f == 0:
-                        minimum_features[i] = new
-                    elif new != 0 and new < min_f:
-                        minimum_features[i] = new
+                non_zero = features != 0
+                current_zero = minimum_features == 0
+                minimum_features[current_zero] = features[current_zero]
+                minimum_features[non_zero] = np.minimum(
+                    minimum_features[non_zero], features[non_zero]
+                )
                 # minimum_features = np.minimum(features, minimum_features)
                 maximum_features = np.maximum(features, maximum_features)
                 # Aggregate
@@ -403,7 +404,7 @@ def process_track(
             )
         )
         data.append(X)
-    print("got", len(data), " for " , len(all_data))
+    print("got", len(data), " for ", len(all_data))
     return data, track.label
 
 
