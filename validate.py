@@ -291,6 +291,7 @@ groups = [
 # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
 # ]
 # about 14 for al features is good
+important_features = []
 MAX_FEATURES = "sqrt"  # Defauilt is sqrt of features (sqrt(52))
 
 group_labels = ["pests", "birds", "FP", "vehicle"]
@@ -522,15 +523,15 @@ def train(args):
     predicted_prob = np.empty([0, num_classes])
     fold = 0
     X_shuffled, y_shuffled, groups_shuffled = shuffle(X, y, I, random_state=0)
-
-    subset = 20000
-    X_shuffled = X_shuffled[:subset]
-    y_shuffled = y_shuffled[:subset]
-    groups_shuffled = groups_shuffled[:subset]
-    f_mask = feature_mask()
-    X_shuffled = np.take(X_shuffled, f_mask, axis=1)
-    global ALL_FEATURES
-    ALL_FEATURES = important_features
+    #
+    # subset = 20000
+    # X_shuffled = X_shuffled[:subset]
+    # y_shuffled = y_shuffled[:subset]
+    # groups_shuffled = groups_shuffled[:subset]
+    # f_mask = feature_mask()
+    # X_shuffled = np.take(X_shuffled, f_mask, axis=1)
+    # global ALL_FEATURES
+    # ALL_FEATURES = important_features
     for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
         fold += 1
