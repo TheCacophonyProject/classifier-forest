@@ -256,15 +256,21 @@ def process_track(
 ):
 
     data = []
-    segment_count = max(1, len(all_data) // segment_frame_spacing)
-    segment_count = int(segment_count)
+    segment_count = 1
+    if segment_frames is not None:
+        segment_count = max(1, len(all_data) // segment_frame_spacing)
+        segment_count = int(segment_count)
     if track.num_frames <= BUFF_LEN:
         return None, None
     start = 0
     for seg_i in range(segment_count):
-        frame_data = all_data[start : start + segment_frames]
-        medians = track.frame_temp_median[start : start + segment_frames]
-        start += segment_frame_spacing
+        if segment_frames is None:
+            frame_data = all_data
+            medians = track.frame_temp_median
+        else:
+            frame_data = all_data[start : start + segment_frames]
+            medians = track.frame_temp_median[start : start + segment_frames]
+            start += segment_frame_spacing
         if seg_i > 0 and len(frame_data) < segment_frames // 2:
             break
         f_count = 0

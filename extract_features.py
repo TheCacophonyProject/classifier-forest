@@ -116,7 +116,9 @@ def process(db, after_date=None):
             print(clip_id, "Track ", track_header.track_id, track_header.label)
 
             frames = db.get_track(clip_id, track_meta["id"], channels=0)
-            X, y = utilsshort.process_track(track_header, frames, background)
+            X, y = utilsshort.process_track(
+                track_header, frames, background, segment_frames=None
+            )
             if X is None:
                 print("Didn't use", track_header.unique_id)
                 continue
