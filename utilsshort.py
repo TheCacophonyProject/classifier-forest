@@ -85,21 +85,22 @@ class FrameFeatures:
         if f_max > 0.0:
             filtered /= f_max
         # Calculate weighted centroid and second moments etc
-        cent, extent, theta = intensity_weighted_moments(filtered, self.region)
-
+        cent, _, _ = intensity_weighted_moments(filtered, self.region)
+        # self.extent =
         self.cent = cent
-        self.extent = extent
-        self.theta = theta
+        # self.extent = extent
+        # self.theta = theta
         # Instantaneous shape features
-        area = np.pi * extent[0] * extent[1]
-        self.sqrt_area = np.sqrt(area)
-        self.elongation = extent[0] / extent[1]
+        # area = np.pi * extent[0] * extent[1]
+        self.sqrt_area = self.region.area
+        # np.sqrt(area)
+        self.elongation = cent[0] / cent[1]
         self.std_back = np.std(sub_back) + 1.0e-9
 
         # Instantaneous intensity features
         self.peak_snr = (self.thermal_max - np.mean(sub_back)) / self.std_back
         self.mean_snr = self.thermal_std / self.std_back
-        self.fill_factor = np.sum(filtered) / area
+        self.fill_factor = np.sum(filtered) / self.sqrt_area
 
     def histogram(self, sub_back, crop_t, normalize=False):
         if normalize:
