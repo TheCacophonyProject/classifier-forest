@@ -283,6 +283,11 @@ groups = [
     ],
     ["nothing", "false-positive", "insect"],
 ]
+for f in all_features:
+    if "hist" in f:
+        print("skipping", f)
+    else:
+        important_features.append(f)
 # groups = [
 # ["rodent", "mustelid", "leporidae", "hedgehog", "possum", "cat"],
 # ["bird", "bird/kiwi", "penguin"],
@@ -291,7 +296,7 @@ groups = [
 # Comment out this line (and make sure REJECT_OTHERS is set to False) to do binary classification (Predators vs everything else). Or enable this line and set REJECT_OTHERS to True to do Predators vs Birds, or False to do Predators vs Birds vs Everything else
 # ]
 # about 14 for al features is good
-important_features = []
+# important_features = []
 MAX_FEATURES = "sqrt"  # Defauilt is sqrt of features (sqrt(52))
 
 group_labels = ["pests", "birds", "FP", "vehicle"]
@@ -528,10 +533,10 @@ def train(args):
     # X_shuffled = X_shuffled[:subset]
     # y_shuffled = y_shuffled[:subset]
     # groups_shuffled = groups_shuffled[:subset]
-    # f_mask = feature_mask()
-    # X_shuffled = np.take(X_shuffled, f_mask, axis=1)
-    # global ALL_FEATURES
-    # ALL_FEATURES = important_features
+    f_mask = feature_mask()
+    X_shuffled = np.take(X_shuffled, f_mask, axis=1)
+    global ALL_FEATURES
+    ALL_FEATURES = important_features
     for train_index, test_index in kfold.split(X_shuffled, y_shuffled, groups_shuffled):
 
         fold += 1
