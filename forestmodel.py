@@ -138,7 +138,7 @@ def extract_features(cptv_file):
         assert len(all_tags) == len(all_features)
     except:
         pass
-    return all_tags, all_features
+    return all_tags, all_features, [meta_data["id"]] * len(all_tags)
 
 
 FFC_PERIOD = timedelta(seconds=9.9)
@@ -410,17 +410,20 @@ def main():
     files = list(load_dir.glob(f"**/*.cptv"))
     all_tags = []
     all_features = []
+    all_ids = []
     with Pool(processes=8) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
-            tags, features = result
+            tags, features, ids = result
             all_tags.extend(tags)
             all_features.extend(features)
+            all_ids.extend(ids)
     print("Got tags and features", len(all_tags), len(all_features))
     with open("features.npy", "wb") as f:
         np.save(f, np.array(all_tags))
         np.save(f, np.array(all_features))
+        np.save(f, np.array(all_ids))
 
 
 if __name__ == "__main__":
