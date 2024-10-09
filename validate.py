@@ -141,6 +141,11 @@ def main():
     for i in range(len(FEATURES)):
         print(f"{i+1:3}   {FEATURES[inds[-1-i]]:20} {100*feat_import[inds[-1-i]]:.1f}%")
 
+    import joblib
+
+    # save
+    joblib.dump(model, "model.pkl")
+
 
 def print_confusion(
     labels, actual_classes, predicted_classes, predicted_prob, threshold

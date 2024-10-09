@@ -112,6 +112,7 @@ def extract_features(cptv_file):
     ffc_frames = None
     all_features = []
     all_tags = []
+    all_tracks = []
     try:
         if "Tracks" not in meta_data:
             return None
@@ -126,7 +127,7 @@ def extract_features(cptv_file):
             human_tag = list(tags)[0]
             if human_tag in EXCLUDED_TAGS:
                 continue
-            print("Using track with tag", human_tag)
+            print("Using track with tag", human_tag, track["id"])
             if frames is None:
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
 
@@ -134,11 +135,11 @@ def extract_features(cptv_file):
             true_tags = [human_tag] * len(track_features)
             all_tags.extend(true_tags)
             all_features.extend(track_features)
-
+            all_tracks.extend([track["id"]] * len(track_features))
         assert len(all_tags) == len(all_features)
     except:
         pass
-    return all_tags, all_features, [meta_data["id"]] * len(all_tags)
+    return all_tags, all_features, [meta_data["id"]] * len(all_tags), all_tracks
 
 
 FFC_PERIOD = timedelta(seconds=9.9)
@@ -415,7 +416,7 @@ def main():
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
-            tags, features, ids = result
+            tags, features, ids, track_ids = result
             all_tags.extend(tags)
             all_features.extend(features)
             all_ids.extend(ids)
