@@ -31,6 +31,7 @@ FEATURES = [
     "fill_factor",
     "histogram_diff",
     "thermal_max",
+    "thermal_min",
     "thermal_std",
     "filtered_max",
     "filtered_min",

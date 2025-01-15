@@ -7,6 +7,9 @@ import cv2
 from cptv_rs_python_bindings import CptvReader
 from datetime import timedelta
 from region import Region
+from rectangle import Rectangle
+
+crop_rectangle = Rectangle(2, 2, 160 - 2 * 2, 120-2 * 2)
 
 FEAT_LABELS = [
     "sqrt_area",
@@ -98,7 +101,7 @@ EXCLUDED_TAGS = ["poor tracking", "part", "untagged", "unidentified"]
 import json
 
 
-def extract_features(cptv_file):
+def extract_features(cptv_file, human_tagged=True):
     cptv_file = Path(cptv_file)
     meta_file = cptv_file.with_suffix(".txt")
     if not meta_file.exists():
@@ -118,15 +121,19 @@ def extract_features(cptv_file):
             return None
         for track in meta_data["Tracks"]:
             human_tags = []
-            tags = [tag["what"] for tag in track["tags"] if tag["automatic"] == False]
-            tags = set(tags)
-            if len(tags) > 2:
-                continue
-            if len(tags) == 0:
-                continue
-            human_tag = list(tags)[0]
-            if human_tag in EXCLUDED_TAGS:
-                continue
+            human_tag = "untagged"
+            if human_tagged:
+                tags = [
+                    tag["what"] for tag in track["tags"] if tag["automatic"] == False
+                ]
+                tags = set(tags)
+                if len(tags) > 2:
+                    continue
+                if len(tags) == 0:
+                    continue
+                human_tag = list(tags)[0]
+                if human_tag in EXCLUDED_TAGS:
+                    continue
             print("Using track with tag", human_tag, track["id"])
             if frames is None:
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
@@ -185,6 +192,7 @@ def load_frames(cptv_file, meta_data):
 
     return frames, background, ffc_frames
 
+FPS = 9
 
 def forest_features(
     frames,
@@ -227,7 +235,9 @@ def forest_features(
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
-        if region.blank or region.width <= 0 or region.height <= 0:
+       
+        region.crop(crop_rectangle)
+        if region.blank or region.area<= 1:
             prev_count = 0
 
             continue
@@ -266,6 +276,7 @@ class FrameFeatures:
         self.mean_snr = None
         self.fill_factor = None
         self.histogram_diff = 0
+        self.thermal_min = None
         self.thermal_max = None
         self.thermal_std = None
         self.filtered_max = None
@@ -273,6 +284,7 @@ class FrameFeatures:
         self.filtered_min = None
 
     def calculate(self, thermal, sub_back):
+        self.thermal_min = np.amin(thermal)
         self.thermal_max = np.amax(thermal)
         self.thermal_std = np.std(thermal)
         filtered = thermal - sub_back
@@ -310,6 +322,7 @@ class FrameFeatures:
                 self.fill_factor,
                 self.histogram_diff,
                 self.thermal_max,
+                self.thermal_min,
                 self.thermal_std,
                 self.filtered_max,
                 self.filtered_min,
@@ -407,6 +420,7 @@ from multiprocessing import Pool
 
 
 def main():
+    init_logging()
     load_dir = Path(sys.argv[1])
     files = list(load_dir.glob(f"**/*.cptv"))
     all_tags = []
@@ -426,6 +440,18 @@ def main():
         np.save(f, np.array(all_features))
         np.save(f, np.array(all_ids))
 
+def init_logging():
+    """Set up logging for use by various classifier pipeline scripts.
 
+    Logs will go to stderr.
+    """
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stderr:
+            root_logger.removeHandler(handler)
+    fmt = "%(process)d %(thread)s:%(levelname)7s %(message)s"
+    logging.basicConfig(
+        stream=sys.stderr, level=logging.INFO, format=fmt, datefmt="%Y-%m-%d %H:%M:%S"
+    )
 if __name__ == "__main__":
     main()
