@@ -134,7 +134,7 @@ def extract_features(cptv_file, human_tagged=True):
                 human_tag = list(tags)[0]
                 if human_tag in EXCLUDED_TAGS:
                     continue
-            print("Using track with tag", human_tag, track["id"])
+            # print("Using track with tag", human_tag, track["id"])
             if frames is None:
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
 

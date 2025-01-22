@@ -128,27 +128,27 @@ def main():
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, None)
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, 0.7)
 
-    # ROC curves (only available for binary classification)
-    if num_classes == 2:
+    # # ROC curves (only available for binary classification)
+    # if num_classes == 2:
 
-        # All predictions
-        for i in range(2):
-            RocCurveDisplay.from_predictions(
-                actual_classes, predicted_prob[:, i], pos_label=i, name="ROC curve"
-            )
-            plt.grid()
-            plt.show()
+    #     # All predictions
+    #     for i in range(2):
+    #         RocCurveDisplay.from_predictions(
+    #             actual_classes, predicted_prob[:, i], pos_label=i, name="ROC curve"
+    #         )
+    #         plt.grid()
+    #         plt.show()
 
-        # Ignoring low probabilities
-        for i in range(2):
-            RocCurveDisplay.from_predictions(
-                actual_classes_masked,
-                predicted_prob_masked[:, i],
-                pos_label=i,
-                name="ROC curve (masked)",
-            )
-            plt.grid()
-            plt.show()
+    #     # Ignoring low probabilities
+    #     for i in range(2):
+    #         RocCurveDisplay.from_predictions(
+    #             actual_classes_masked,
+    #             predicted_prob_masked[:, i],
+    #             pos_label=i,
+    #             name="ROC curve (masked)",
+    #         )
+    #         plt.grid()
+    #         plt.show()
 
     # Train on everything to get feature importances
     print("Training on everything...")
