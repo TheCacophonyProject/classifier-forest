@@ -12,7 +12,7 @@ import pickle
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
-
+import argparse
 data_folder = r""
 
 # Hardcoded settings
@@ -38,9 +38,40 @@ FEATURES = [
     "filtered_std",
 ]
 
+from sklearn.model_selection import GridSearchCV
+def grid_search(x_train,y_train):
+
+
+
+
+
+    print("DOIng a grid search")
+    param_grid = { 
+        # 'n_estimators': [ 50, 100, 150,200], 
+        # 'max_features': ['sqrt', 'log2', None], 
+        # 'max_depth': [3, 6, 9], 
+        'max_leaf_nodes': [3, 6, 9], 
+    } 
+
+    grid_search = GridSearchCV(RandomForestClassifier(n_jobs=8), 
+                            param_grid=param_grid) 
+    grid_search.fit(x_train, y_train) 
+    print(grid_search.best_estimator_) 
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--grid-search",
+        help="Model to load and do preds",
+         action='store_true'
+    )
+
+    args = parser.parse_args()
+    return args
 
 def main():
-
+    args = parse_args()
     with open(os.path.join(data_folder, "features.npy"), "rb") as f:
         all_tags = np.load(f)
         all_features = np.load(f)
@@ -68,13 +99,16 @@ def main():
             Y.append(labels.index("animal"))
         X.append(feature)
         groups.append(uid)
-
+    if args.grid_search:
+        grid_search(np.array(X),np.array(Y))
+        return
     # Random forest has lots of settings in addition to the ones here.
     # Would be good to run a grid search to find ideal values at some point before deployment.
     model = RandomForestClassifier(
         n_estimators=NUM_TREES,
         max_depth=MAX_TREE_DEPTH,
         class_weight="balanced",
+        n_jobs=8
     )
 
     # Run cross-validation
