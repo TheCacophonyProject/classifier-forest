@@ -69,7 +69,7 @@ def main():
 
     model = joblib.load(args.model)
 
-    meta_file = args.model.parent / "metadata.txt"
+    meta_file = args.model.with_suffix(".json")
     with meta_file.open("r") as t:
         # add in some metadata stats
         meta_data = json.load(t) 
@@ -88,9 +88,9 @@ def main():
             if result is None:
                 continue
             tags, track_features , track_ids,clip_id = result
-            for track_feature,tag in zip(track_features,tags):
+            for features,tag in zip(track_features,tags):
                 all_tags.append(tag)
-                all_features.append(np.array(track_features))
+                all_features.append(np.array(features))
             track_ids.extend(track_ids)
 
     for tag, track_features,  track_id in zip(all_tags, all_features, track_ids):

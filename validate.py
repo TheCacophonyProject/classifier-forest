@@ -13,6 +13,8 @@ import pickle
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
 import argparse
+import time
+import json
 data_folder = r""
 
 # Hardcoded settings
@@ -203,7 +205,11 @@ def main():
 
     # save
     joblib.dump(model, "model.pkl")
-
+    metadata = {}
+    metadata["labels"]=labels
+    metadata["datetime2"] = time.time()
+    with open("model.json","w") as f:
+        json.dump(metadata,f)
 def track_accuracy( actual_classes,predicted_probs,track_ids):
     track_probs = {}
     for y,prob,track_id in zip( actual_classes,predicted_probs,track_ids):
