@@ -76,6 +76,7 @@ def main():
         all_tags = np.load(f)
         all_features = np.load(f)
         all_ids = np.load(f)
+        all_track_ids = np.load(f)
     assert len(all_tags) == len(all_features)
     np.random.seed(0)
 
@@ -93,8 +94,8 @@ def main():
             continue
         if tag in fp_tags:
             Y.append(labels.index("false-positive"))
-        elif tag == "vehicle":
-            Y.append(labels.index("vehicle"))
+        # elif tag == "vehicle":
+            # Y.append(labels.index("vehicle"))
         else:
             Y.append(labels.index("animal"))
         X.append(feature)
@@ -132,8 +133,8 @@ def main():
         print(f"Cross validating, fold {fold} of {NUM_FOLDS}...")
 
         X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = Y[train_index], Y[test_index]
-
+        y_train, y_test, y_tracks = Y[train_index], Y[test_index], all_track_ids[test_index]
+        ids = all_ids[test_index]
         group_test = groups[test_index]
 
         model.fit(X_train, y_train)
@@ -142,7 +143,7 @@ def main():
             X_test
         )  # Probabilities are useful for filtering and generating ROC curves
         print(p_pred.shape)
-        track_prob, track_y, track_ids, track_predicted = track_accuracy(y_test,p_pred,group_test)
+        track_prob, track_y, track_ids, track_predicted = track_accuracy(y_tracks,p_pred,group_test)
         print(track_prob.shape,track_y.shape,track_predicted.shape)
 
         track_actual_classes = np.append(track_actual_classes, track_y)
@@ -203,9 +204,9 @@ def main():
     # save
     joblib.dump(model, "model.pkl")
 
-def track_accuracy( actual_classes,predicted_probs,groups):
+def track_accuracy( actual_classes,predicted_probs,track_ids):
     track_probs = {}
-    for y,prob,track_id in zip( actual_classes,predicted_probs,groups):
+    for y,prob,track_id in zip( actual_classes,predicted_probs,track_ids):
         if track_id not in track_probs:
             track_probs[track_id] ={"probs":[]}
         
@@ -253,7 +254,12 @@ def print_confusion(
                     actual_classes_masked == i, predicted_classes_masked == j
                 )
             )
-            print(f"{s:9} ({round(100*s/total)})", end="")
+            if total == 0:
+                percent = "0"
+            else:
+                percent = round(100*s/total)
+
+            print(f"{s:9} ({percent})", end="")
         print(f" | {total:9}")
     print("---------------------------------------")
     for j in range(len(labels)):

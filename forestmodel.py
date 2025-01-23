@@ -107,16 +107,18 @@ def extract_features(cptv_file, human_tagged=True):
     if not meta_file.exists():
         print("No meta for ", cptv_file)
         return None
-    with meta_file.open("r") as t:
-        # add in some metadata stats
-        meta_data = json.load(t)
+
     frames = None
     background = None
     ffc_frames = None
     all_features = []
     all_tags = []
     all_tracks = []
+    meta_data = None
     try:
+        with meta_file.open("r") as t:
+        # add in some metadata stats
+            meta_data = json.load(t)
         if "Tracks" not in meta_data:
             return None
         for track in meta_data["Tracks"]:
@@ -139,14 +141,14 @@ def extract_features(cptv_file, human_tagged=True):
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
 
             track_features = forest_features(frames, background, ffc_frames, track)
-            true_tags = [human_tag] * len(track_features)
-            all_tags.extend(true_tags)
-            all_features.extend(track_features)
-            all_tracks.extend([track["id"]] * len(track_features))
+            all_tags.append(human_tag)
+            all_tracks.append(track["id"])
+            all_features.append(track_features)
         assert len(all_tags) == len(all_features)
-    except:
+    except Exception as e:
+        print("Exception ", e, " for file ", cptv_file)
         pass
-    return all_tags, all_features, [meta_data["id"]] * len(all_tags), all_tracks
+    return all_tags, all_features, all_tracks, meta_data["id"] if meta_data else None
 
 
 FFC_PERIOD = timedelta(seconds=9.9)
@@ -426,19 +428,28 @@ def main():
     all_tags = []
     all_features = []
     all_ids = []
+    all_track_ids = []
+    # probably should not bother repeat track ids etc and just handle this on load
     with Pool(processes=8) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
-            tags, features, ids, track_ids = result
-            all_tags.extend(tags)
-            all_features.extend(features)
-            all_ids.extend(ids)
+            tags, features, track_ids,clip_id = result
+            for track_features,tag,track_id in zip(features,tags,track_ids):
+                all_tags.extend([tag]*len(track_features))
+                all_features.extend(track_features)
+                all_ids.extend([clip_id] * len(track_features))
+                all_track_ids.extend([track_id]* len(track_features))
+            assert len(all_tags)== len(all_features)
+            assert len(all_ids)== len(all_tags)
+            assert len(all_track_ids)== len(all_tags)
+
     print("Got tags and features", len(all_tags), len(all_features))
     with open("features.npy", "wb") as f:
         np.save(f, np.array(all_tags))
         np.save(f, np.array(all_features))
         np.save(f, np.array(all_ids))
+        np.save(f, np.array(all_track_ids))
 
 def init_logging():
     """Set up logging for use by various classifier pipeline scripts.

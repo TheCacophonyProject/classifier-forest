@@ -82,23 +82,24 @@ def main():
     files = list(args.cptv_dir.glob(f"**/*.cptv"))
     all_tags = []
     all_features = []
-    all_ids = []
+    track_ids = []
     with Pool(processes=8) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
-            tags, features, ids, track_ids = result
-            all_tags.extend(tags)
-            all_features.extend(features)
-            all_ids.extend(ids)
+            tags, track_features , track_ids,clip_id = result
+            for track_feature,tag in zip(track_features,tags):
+                all_tags.append(tag)
+                all_features.append(np.array(track_features))
+            track_ids.extend(track_ids)
 
-    for tag, feature,  track_id in zip(all_tags, all_features, all_ids):
+    for tag, track_features,  track_id in zip(all_tags, all_features, track_ids):
         y =tag_to_labels(tag,labels)
         if y is None:
             continue
-        prediction = model.predict_proba([feature])
-        predictions = model_results.setdefault(track_id, ([],y))
-        predictions[0].append(prediction[0])
+        prediction = model.predict_proba(track_features)
+        model_results[track_id] = (prediction,y)
+
     labels.append("nothing")
     y_pred = []
     threshold = 0.7
