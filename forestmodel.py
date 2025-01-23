@@ -146,6 +146,7 @@ def extract_features(cptv_file, human_tagged=True):
             all_features.append(track_features)
         assert len(all_tags) == len(all_features)
     except Exception as e:
+        # raise e
         print("Exception ", e, " for file ", cptv_file)
         pass
     return all_tags, all_features, all_tracks, meta_data["id"] if meta_data else None
@@ -245,16 +246,17 @@ def forest_features(
             continue
         if region.frame_number in ffc_frames:
             continue
+
         frame = frames[region.frame_number]
         feature = FrameFeatures(region)
         sub_back = region.subimage(background)
-        feature.calc_histogram(sub_back, frame, normalize=True)
-        t_median = np.median(frame)
         cropped_frame = region.subimage(frame)
         thermal = cropped_frame
+        feature.calc_histogram(sub_back, thermal, normalize=True)
+        t_median = np.median(frame)
+
 
         thermal = thermal + back_med - t_median
-
         feature.calculate(thermal, sub_back)
 
         frame_features.append(feature)
@@ -291,7 +293,6 @@ class FrameFeatures:
         self.thermal_std = np.std(thermal)
         filtered = thermal - sub_back
         filtered = np.abs(filtered)
-
         self.filtered_max = np.amax(filtered)
         self.filtered_min = np.amin(filtered)
 
@@ -343,7 +344,7 @@ class FrameFeatures:
 
             sub_back *= 255
             crop_t *= 255
-
+        assert sub_back.shape == crop_t.shape
         # sub_back = np.uint8(sub_back)
         # crop_t = np.uint8(crop_t)
         sub_back = sub_back[..., np.newaxis]
