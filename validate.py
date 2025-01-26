@@ -144,10 +144,7 @@ def main():
         p_pred = model.predict_proba(
             X_test
         )  # Probabilities are useful for filtering and generating ROC curves
-        print(p_pred.shape)
-        track_prob, track_y, track_ids, track_predicted = track_accuracy(y_tracks,p_pred,group_test)
-        print(track_prob.shape,track_y.shape,track_predicted.shape)
-
+        track_prob, track_y, track_ids, track_predicted = track_accuracy(y_test,p_pred,y_tracks)
         track_actual_classes = np.append(track_actual_classes, track_y)
         track_predicted_classes = np.append(track_predicted_classes, track_predicted)
         track_predicted_prob = np.append(track_predicted_prob, track_prob, axis=0)
@@ -160,7 +157,6 @@ def main():
     print("Track level confusion")
     print_confusion(labels, track_actual_classes, track_predicted_classes, track_predicted_prob, None)
     print_confusion(labels, track_actual_classes, track_predicted_classes, track_predicted_prob, 0.7)
-
     print("Frame level confusion")
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, None)
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, 0.7)
@@ -219,7 +215,6 @@ def track_accuracy( actual_classes,predicted_probs,track_ids):
         track_probs[track_id]["probs"].append(prob)
         track_probs[track_id]["y"] = y
         track_probs[track_id]["track_id"] = track_id
-    print("Got ", len(actual_classes), " this is ", len(track_probs), " tracks")
     probs = []
     tracks = []
     track_y = []
@@ -232,6 +227,7 @@ def track_accuracy( actual_classes,predicted_probs,track_ids):
         track_predicted.append(np.argmax(prob))
     
     return np.array(probs), np.array(track_y), np.array(tracks),np.array(track_predicted)
+
 def print_confusion(
     labels, actual_classes, predicted_classes, predicted_prob, threshold
 ):
@@ -249,7 +245,6 @@ def print_confusion(
         predicted_prob_masked = predicted_prob
     print(f"{threshold}  P R E D I C T E D")
     for i in range(len(labels)):
-
         print(labels[i], end="")
         total = np.sum(actual_classes == i)
 
