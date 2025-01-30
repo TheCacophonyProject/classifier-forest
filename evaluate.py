@@ -32,7 +32,7 @@ def parse_args():
         help="Model to load and do preds",
     )
     parser.add_argument(
-        "cptv_dir",
+        "--cptv_dir",
         default=None,
         help="Directory of cptvs",
     )
@@ -42,11 +42,20 @@ def parse_args():
         help="Confusion file",
     )
 
+    parser.add_argument(
+        "--feature-file",
+        default=None,
+        help="Feature file instead of cptv dir",
+    )
+
+
     args = parser.parse_args()
     args.model = Path(args.model)
-    args.cptv_dir = Path(args.cptv_dir)
+    if args.cptv_dir is not None:
+        args.cptv_dir = Path(args.cptv_dir)
     args.confusion = Path(args.confusion)
-
+    if args.feature_file is not None:
+        args.feature_file = Path(args.feature_file)
     return args
 
 
@@ -78,22 +87,39 @@ def main():
     y_true = []
     
     model_results = {}
+    if args.cptv_dir:
+        files = list(args.cptv_dir.glob(f"**/*.cptv"))
+        all_tags = []
+        all_features = []
+        track_ids = []
+        all_counts = []
+        with Pool(processes=8) as pool:
+            for result in pool.imap_unordered(extract_features, files):
+                if result is None:
+                    continue
+                tags, track_features , track_id,clip_id = result
+                for features,tag in zip(track_features,tags):
+                    all_tags.append(tag)
+                    all_features.extend(np.array(features))
+                    all_counts.append(len(features))
+                    print("Saved ",all_counts[-1])
+                track_ids.extend(track_id)
+        with open("eval-features.npy", "wb") as f:
+            np.save(f,np.array(all_tags).flatten())
+            np.save(f,np.array(all_features))
+            np.save(f,np.array(track_ids))
+            np.save(f,np.array(all_counts))
+    else:
+        with args.feature_file.open("rb") as f:
+            all_tags = np.load(f)
+            all_features = np.load(f)
+            track_ids = np.load(f)
+            all_counts = np.load(f)
 
-    files = list(args.cptv_dir.glob(f"**/*.cptv"))
-    all_tags = []
-    all_features = []
-    track_ids = []
-    with Pool(processes=8) as pool:
-        for result in pool.imap_unordered(extract_features, files):
-            if result is None:
-                continue
-            tags, track_features , track_ids,clip_id = result
-            for features,tag in zip(track_features,tags):
-                all_tags.append(tag)
-                all_features.append(np.array(features))
-            track_ids.extend(track_ids)
-
-    for tag, track_features,  track_id in zip(all_tags, all_features, track_ids):
+    array_index = 0
+    for tag, count,  track_id in zip(all_tags, all_counts, track_ids):
+        track_features = all_features[array_index: array_index+ count]
+        array_index+=count
         y =tag_to_labels(tag,labels)
         if y is None:
             continue
