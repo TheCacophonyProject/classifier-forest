@@ -9,7 +9,7 @@ from datetime import timedelta
 from region import Region
 from rectangle import Rectangle
 
-crop_rectangle = Rectangle(2, 2, 160 - 2 * 2, 120-2 * 2)
+crop_rectangle = Rectangle(2, 2, 160 - 2 * 2, 120 - 2 * 2)
 
 FEAT_LABELS = [
     "sqrt_area",
@@ -117,7 +117,7 @@ def extract_features(cptv_file, human_tagged=True):
     meta_data = None
     try:
         with meta_file.open("r") as t:
-        # add in some metadata stats
+            # add in some metadata stats
             meta_data = json.load(t)
         if "Tracks" not in meta_data:
             return None
@@ -195,7 +195,9 @@ def load_frames(cptv_file, meta_data):
 
     return frames, background, ffc_frames
 
+
 FPS = 9
+
 
 def forest_features(
     frames,
@@ -238,9 +240,9 @@ def forest_features(
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
-       
+
         region.crop(crop_rectangle)
-        if region.blank or region.area<= 1:
+        if region.blank or region.area <= 1:
             prev_count = 0
 
             continue
@@ -254,7 +256,6 @@ def forest_features(
         thermal = cropped_frame
         feature.calc_histogram(sub_back, thermal, normalize=True)
         t_median = np.median(frame)
-
 
         thermal = thermal + back_med - t_median
         feature.calculate(thermal, sub_back)
@@ -435,15 +436,15 @@ def main():
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
-            tags, features, track_ids,clip_id = result
-            for track_features,tag,track_id in zip(features,tags,track_ids):
-                all_tags.extend([tag]*len(track_features))
+            tags, features, track_ids, clip_id = result
+            for track_features, tag, track_id in zip(features, tags, track_ids):
+                all_tags.extend([tag] * len(track_features))
                 all_features.extend(track_features)
                 all_ids.extend([clip_id] * len(track_features))
-                all_track_ids.extend([track_id]* len(track_features))
-            assert len(all_tags)== len(all_features)
-            assert len(all_ids)== len(all_tags)
-            assert len(all_track_ids)== len(all_tags)
+                all_track_ids.extend([track_id] * len(track_features))
+            assert len(all_tags) == len(all_features)
+            assert len(all_ids) == len(all_tags)
+            assert len(all_track_ids) == len(all_tags)
 
     print("Got tags and features", len(all_tags), len(all_features))
     with open("features.npy", "wb") as f:
@@ -451,6 +452,7 @@ def main():
         np.save(f, np.array(all_features))
         np.save(f, np.array(all_ids))
         np.save(f, np.array(all_track_ids))
+
 
 def init_logging():
     """Set up logging for use by various classifier pipeline scripts.
@@ -465,5 +467,7 @@ def init_logging():
     logging.basicConfig(
         stream=sys.stderr, level=logging.INFO, format=fmt, datefmt="%Y-%m-%d %H:%M:%S"
     )
+
+
 if __name__ == "__main__":
     main()

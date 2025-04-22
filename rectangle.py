@@ -51,11 +51,10 @@ class Rectangle:
     def right(self):
         return self.x + self.width
 
-# 0 height 1
-# bottom = 1
+    # 0 height 1
+    # bottom = 1
 
     @property
-
     def bottom(self):
         return self.y + self.height
 

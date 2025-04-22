@@ -15,7 +15,7 @@ import utils
 # Point to top-level folder containing subfolders with cptv files
 data_folder = r"D:\Data\cacophony"
 
-X = np.zeros((0,52))    # Hardcoded to 52 features for now
+X = np.zeros((0, 52))  # Hardcoded to 52 features for now
 Y = np.zeros(0)
 I = np.zeros(0)
 counter = 0
@@ -36,11 +36,11 @@ for sub in list_subs:
             # Ignore directories
             cptvFile = os.path.join(sub_folder, file)
             if os.path.isfile(cptvFile):
-                
+
                 # Check for .cptv file extension
                 fileparts = os.path.splitext(file)
                 if fileparts[1].lower() == ".cptv":
-                    
+
                     # Check corresponding .txt file is present
                     txtFile = os.path.join(sub_folder, fileparts[0] + ".txt")
                     if os.path.isfile(txtFile):
@@ -49,18 +49,17 @@ for sub in list_subs:
                         with open(txtFile, "rt") as f:
                             data = json.load(f)
 
-                        x,y = utils.process_sequence(cptvFile, data)
+                        x, y = utils.process_sequence(cptvFile, data)
                         X = np.concatenate((X, x))
                         Y = np.concatenate((Y, y))
-                        I = np.concatenate((I, counter*np.ones(len(y))))
+                        I = np.concatenate((I, counter * np.ones(len(y))))
                         counter += 1
 
 # Dump everything out to pickle file
 train = {
-    'X': X,
-    'Y': Y,
-    'I': I,
+    "X": X,
+    "Y": Y,
+    "I": I,
 }
-with open('train.pickle', 'wb') as f:
+with open("train.pickle", "wb") as f:
     pickle.dump(train, f, pickle.HIGHEST_PROTOCOL)
-

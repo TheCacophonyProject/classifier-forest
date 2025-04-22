@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import itertools
 from multiprocessing import Pool
 
+
 def init_logging():
     """Set up logging for use by various classifier pipeline scripts.
 
@@ -48,7 +49,6 @@ def parse_args():
         help="Feature file instead of cptv dir",
     )
 
-
     args = parser.parse_args()
     args.model = Path(args.model)
     if args.cptv_dir is not None:
@@ -62,7 +62,8 @@ def parse_args():
 fp_tags = ["water", "false-positive", "insect"]
 ignore_labels = ["not identifiable", "other"]
 
-def tag_to_labels(tag,labels):
+
+def tag_to_labels(tag, labels):
     if tag in ignore_labels:
         return None
     if tag in fp_tags:
@@ -71,6 +72,8 @@ def tag_to_labels(tag,labels):
         return labels.index("vehicle")
     else:
         return labels.index("animal")
+
+
 # test stuff
 def main():
     init_logging()
@@ -81,11 +84,11 @@ def main():
     meta_file = args.model.with_suffix(".json")
     with meta_file.open("r") as t:
         # add in some metadata stats
-        meta_data = json.load(t) 
+        meta_data = json.load(t)
     labels = meta_data["labels"]
-    print("Model labels are",labels)
+    print("Model labels are", labels)
     y_true = []
-    
+
     model_results = {}
     if args.cptv_dir:
         files = list(args.cptv_dir.glob(f"**/*.cptv"))
@@ -97,18 +100,17 @@ def main():
             for result in pool.imap_unordered(extract_features, files):
                 if result is None:
                     continue
-                tags, track_features , track_id,clip_id = result
-                for features,tag in zip(track_features,tags):
+                tags, track_features, track_id, clip_id = result
+                for features, tag in zip(track_features, tags):
                     all_tags.append(tag)
                     all_features.extend(np.array(features))
                     all_counts.append(len(features))
-                    print("Saved ",all_counts[-1])
                 track_ids.extend(track_id)
         with open("eval-features.npy", "wb") as f:
-            np.save(f,np.array(all_tags).flatten())
-            np.save(f,np.array(all_features))
-            np.save(f,np.array(track_ids))
-            np.save(f,np.array(all_counts))
+            np.save(f, np.array(all_tags).flatten())
+            np.save(f, np.array(all_features))
+            np.save(f, np.array(track_ids))
+            np.save(f, np.array(all_counts))
     else:
         with args.feature_file.open("rb") as f:
             all_tags = np.load(f)
@@ -117,14 +119,14 @@ def main():
             all_counts = np.load(f)
 
     array_index = 0
-    for tag, count,  track_id in zip(all_tags, all_counts, track_ids):
-        track_features = all_features[array_index: array_index+ count]
-        array_index+=count
-        y =tag_to_labels(tag,labels)
+    for tag, count, track_id in zip(all_tags, all_counts, track_ids):
+        track_features = all_features[array_index : array_index + count]
+        array_index += count
+        y = tag_to_labels(tag, labels)
         if y is None:
             continue
         prediction = model.predict_proba(track_features)
-        model_results[track_id] = (prediction,y)
+        model_results[track_id] = (prediction, y)
 
     labels.append("nothing")
     y_pred = []
@@ -136,10 +138,10 @@ def main():
         best_lbl = labels[best_p]
         y_true.append(v[1])
 
-        if prob>= threshold:
+        if prob >= threshold:
             y_pred.append(best_p)
         else:
-            y_pred.append(len(labels)-1)        
+            y_pred.append(len(labels) - 1)
         best_conf = round(pred[best_p] * 100)
         print(f"{v[1]} - Prediction for track {k} is {best_lbl}:{best_conf}%")
         # for p in v[0]:
@@ -191,6 +193,7 @@ def plot_confusion_matrix(cm, class_names):
     plt.ylabel("True label")
     plt.xlabel("Predicted label")
     return figure
+
 
 if __name__ == "__main__":
     main()

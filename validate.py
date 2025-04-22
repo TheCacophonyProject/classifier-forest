@@ -15,6 +15,7 @@ from sklearn.metrics import RocCurveDisplay
 import argparse
 import time
 import json
+
 data_folder = r""
 
 # Hardcoded settings
@@ -41,36 +42,32 @@ FEATURES = [
 ]
 
 from sklearn.model_selection import GridSearchCV
-def grid_search(x_train,y_train):
 
 
-
-
+def grid_search(x_train, y_train):
 
     print("DOIng a grid search")
-    param_grid = { 
-        # 'n_estimators': [ 50, 100, 150,200], 
-        # 'max_features': ['sqrt', 'log2', None], 
-        # 'max_depth': [3, 6, 9], 
-        'max_leaf_nodes': [3, 6, 9], 
-    } 
+    param_grid = {
+        # 'n_estimators': [ 50, 100, 150,200],
+        # 'max_features': ['sqrt', 'log2', None],
+        # 'max_depth': [3, 6, 9],
+        "max_leaf_nodes": [3, 6, 9],
+    }
 
-    grid_search = GridSearchCV(RandomForestClassifier(n_jobs=8), 
-                            param_grid=param_grid) 
-    grid_search.fit(x_train, y_train) 
-    print(grid_search.best_estimator_) 
+    grid_search = GridSearchCV(RandomForestClassifier(n_jobs=8), param_grid=param_grid)
+    grid_search.fit(x_train, y_train)
+    print(grid_search.best_estimator_)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--grid-search",
-        help="Model to load and do preds",
-         action='store_true'
+        "--grid-search", help="Model to load and do preds", action="store_true"
     )
 
     args = parser.parse_args()
     return args
+
 
 def main():
     args = parse_args()
@@ -83,7 +80,6 @@ def main():
     np.random.seed(0)
 
     fp_tags = ["water", "false-positive", "insect"]
-    labels = ["animal", "false-positive", "vehicle"]
     labels = ["animal", "false-positive"]
 
     ignore_labels = ["not identifiable", "other"]
@@ -97,13 +93,13 @@ def main():
         if tag in fp_tags:
             Y.append(labels.index("false-positive"))
         # elif tag == "vehicle":
-            # Y.append(labels.index("vehicle"))
+        # Y.append(labels.index("vehicle"))
         else:
             Y.append(labels.index("animal"))
         X.append(feature)
         groups.append(uid)
     if args.grid_search:
-        grid_search(np.array(X),np.array(Y))
+        grid_search(np.array(X), np.array(Y))
         return
     # Random forest has lots of settings in addition to the ones here.
     # Would be good to run a grid search to find ideal values at some point before deployment.
@@ -111,7 +107,7 @@ def main():
         n_estimators=NUM_TREES,
         max_depth=MAX_TREE_DEPTH,
         class_weight="balanced",
-        n_jobs=8
+        n_jobs=8,
     )
 
     # Run cross-validation
@@ -120,11 +116,10 @@ def main():
     predicted_classes = np.empty([0], dtype=int)
     predicted_prob = np.empty([0, num_classes])
 
-
     track_actual_classes = np.empty([0], dtype=int)
     track_predicted_classes = np.empty([0], dtype=int)
     track_predicted_prob = np.empty([0, num_classes])
-    print("Num classes",num_classes)
+    print("Num classes", num_classes)
     fold = 0
     X = np.array(X)
     Y = np.array(Y)
@@ -135,7 +130,11 @@ def main():
         print(f"Cross validating, fold {fold} of {NUM_FOLDS}...")
 
         X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test, y_tracks = Y[train_index], Y[test_index], all_track_ids[test_index]
+        y_train, y_test, y_tracks = (
+            Y[train_index],
+            Y[test_index],
+            all_track_ids[test_index],
+        )
         ids = all_ids[test_index]
         group_test = groups[test_index]
 
@@ -144,7 +143,9 @@ def main():
         p_pred = model.predict_proba(
             X_test
         )  # Probabilities are useful for filtering and generating ROC curves
-        track_prob, track_y, track_ids, track_predicted = track_accuracy(y_test,p_pred,y_tracks)
+        track_prob, track_y, track_ids, track_predicted = track_accuracy(
+            y_test, p_pred, y_tracks
+        )
         track_actual_classes = np.append(track_actual_classes, track_y)
         track_predicted_classes = np.append(track_predicted_classes, track_predicted)
         track_predicted_prob = np.append(track_predicted_prob, track_prob, axis=0)
@@ -155,8 +156,16 @@ def main():
 
     # Confusion matrix
     print("Track level confusion")
-    print_confusion(labels, track_actual_classes, track_predicted_classes, track_predicted_prob, None)
-    print_confusion(labels, track_actual_classes, track_predicted_classes, track_predicted_prob, 0.7)
+    print_confusion(
+        labels,
+        track_actual_classes,
+        track_predicted_classes,
+        track_predicted_prob,
+        None,
+    )
+    print_confusion(
+        labels, track_actual_classes, track_predicted_classes, track_predicted_prob, 0.7
+    )
     print("Frame level confusion")
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, None)
     print_confusion(labels, actual_classes, predicted_classes, predicted_prob, 0.7)
@@ -202,16 +211,18 @@ def main():
     # save
     joblib.dump(model, "model.pkl")
     metadata = {}
-    metadata["labels"]=labels
+    metadata["labels"] = labels
     metadata["datetime2"] = time.time()
-    with open("model.json","w") as f:
-        json.dump(metadata,f)
-def track_accuracy( actual_classes,predicted_probs,track_ids):
+    with open("model.json", "w") as f:
+        json.dump(metadata, f)
+
+
+def track_accuracy(actual_classes, predicted_probs, track_ids):
     track_probs = {}
-    for y,prob,track_id in zip( actual_classes,predicted_probs,track_ids):
+    for y, prob, track_id in zip(actual_classes, predicted_probs, track_ids):
         if track_id not in track_probs:
-            track_probs[track_id] ={"probs":[]}
-        
+            track_probs[track_id] = {"probs": []}
+
         track_probs[track_id]["probs"].append(prob)
         track_probs[track_id]["y"] = y
         track_probs[track_id]["track_id"] = track_id
@@ -220,13 +231,19 @@ def track_accuracy( actual_classes,predicted_probs,track_ids):
     track_y = []
     track_predicted = []
     for track_id, item in track_probs.items():
-        prob = np.mean(np.array(item["probs"]),axis=0)
+        prob = np.mean(np.array(item["probs"]), axis=0)
         probs.append(prob)
         track_y.append(item["y"])
         tracks.append(item["track_id"])
         track_predicted.append(np.argmax(prob))
-    
-    return np.array(probs), np.array(track_y), np.array(tracks),np.array(track_predicted)
+
+    return (
+        np.array(probs),
+        np.array(track_y),
+        np.array(tracks),
+        np.array(track_predicted),
+    )
+
 
 def print_confusion(
     labels, actual_classes, predicted_classes, predicted_prob, threshold
@@ -258,7 +275,7 @@ def print_confusion(
             if total == 0:
                 percent = "0"
             else:
-                percent = round(100*s/total)
+                percent = round(100 * s / total)
 
             print(f"{s:9} ({percent})", end="")
         print(f" | {total:9}")
