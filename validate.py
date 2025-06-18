@@ -41,6 +41,12 @@ FEATURES = [
     "filtered_std",
 ]
 
+
+USED_FEATURES = list(np.arange(len(FEATURES)))
+hist_index = FEATURES.index("histogram_diff")
+USED_FEATURES.remove(hist_index)
+
+USED_FEATURES = np.array(USED_FEATURES)
 from sklearn.model_selection import GridSearchCV
 
 
@@ -98,6 +104,11 @@ def main():
             Y.append(labels.index("animal"))
         X.append(feature)
         groups.append(uid)
+
+    for i, f in enumerate(FEATURES):
+        if i not in USED_FEATURES:
+            print("Exclidng feature ", f)
+
     if args.grid_search:
         grid_search(np.array(X), np.array(Y))
         return
@@ -122,6 +133,7 @@ def main():
     print("Num classes", num_classes)
     fold = 0
     X = np.array(X)
+    X = X[:, USED_FEATURES]
     Y = np.array(Y)
     groups = np.array(groups)
     for train_index, test_index in kfold.split(X, Y, groups):
@@ -135,6 +147,7 @@ def main():
             Y[test_index],
             all_track_ids[test_index],
         )
+
         ids = all_ids[test_index]
         group_test = groups[test_index]
 
@@ -196,15 +209,15 @@ def main():
     print("Training on everything...")
     model.fit(X, Y)
     feat_import = model.feature_importances_
-
     print("Feature importances:")
-    for i in range(len(FEATURES)):
-        print(f"{i+1:3}   {FEATURES[i]:20} {100*feat_import[i]:.1f}%")
+    for i, f_i in enumerate(USED_FEATURES):
+        print(f"{i:3}   {FEATURES[f_i]:20} {100*feat_import[i]:.1f}%")
 
     inds = np.argsort(feat_import)
     print("Feature importances (ranked):")
-    for i in range(len(FEATURES)):
-        print(f"{i+1:3}   {FEATURES[inds[-1-i]]:20} {100*feat_import[inds[-1-i]]:.1f}%")
+    for i, ind in enumerate(inds):
+        feature = FEATURES[USED_FEATURES[ind]]
+        print(f"{i}   {feature:20} {100*feat_import[ind]:.1f}%")
 
     import joblib
 
