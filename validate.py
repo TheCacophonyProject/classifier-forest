@@ -99,18 +99,24 @@ def main():
     X = []
     groups = []
     tags_used = set()
-    remapped = {"rat": "rodent", "mouse": "rodent"}
+    remapped = {
+        "rat": "rodent",
+        "mouse": "rodent",
+        "ferret": "mustelid",
+        "weasel": "mustelid",
+        "stoat": "mustelid",
+    }
     for tag, feature, uid in zip(all_tags, all_features, all_ids):
         re_tag = remapped.get(tag, tag)
         if re_tag in ignore_labels:
             continue
-        tags_used.add(tag)
+        tags_used.add(str(tag))
         if re_tag in fp_tags:
             Y.append(labels.index("false-positive"))
         # elif tag == "vehicle":
         # Y.append(labels.index("vehicle"))
         elif re_tag in labels:
-            Y.append(re_tag)
+            Y.append(labels.index(re_tag))
         else:
             Y.append(labels.index("animal"))
         X.append(feature)
@@ -121,7 +127,7 @@ def main():
             print("Exclidng feature ", f)
     tags_used = list(tags_used)
     tags_used.sort()
-    print("Using tags ",tags_used)
+    print("Using tags ", tags_used)
     if args.grid_search:
         grid_search(np.array(X), np.array(Y))
         return
@@ -166,9 +172,8 @@ def main():
 
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
-        p_pred = model.predict_proba(
-            X_test
-        )  # Probabilities are useful for filtering and generating ROC curves
+        p_pred = model.predict_proba(X_test)
+        # cant set number of classes manually so if a class isn't present it crashes
         track_prob, track_y, track_ids, track_predicted = track_accuracy(
             y_test, p_pred, y_tracks
         )
@@ -232,10 +237,9 @@ def main():
         feature = FEATURES[USED_FEATURES[ind]]
         print(f"{i}   {feature:20} {100*feat_import[ind]:.1f}%")
 
-
     # save
     with save_file.open("wb") as f:
-        pickle.dump(model,f,protocol=5)
+        pickle.dump(model, f, protocol=5)
     metadata = {}
     metadata["tags_used"] = tags_used
     metadata["fp_tags"] = fp_tags
