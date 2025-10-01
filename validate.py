@@ -87,19 +87,23 @@ def main():
 
     fp_tags = ["water", "false-positive", "insect"]
     labels = ["animal", "false-positive"]
-
+    labels = ["rodent", "mustelid", "animal", "false-positive"]
     ignore_labels = ["not identifiable", "other"]
     num_classes = len(labels)
     Y = []
     X = []
     groups = []
+    remapped = {"rat": "rodent", "mouse": "rodent"}
     for tag, feature, uid in zip(all_tags, all_features, all_ids):
-        if tag in ignore_labels:
+        re_tag = remapped.get(tag, tag)
+        if re_tag in ignore_labels:
             continue
-        if tag in fp_tags:
+        if re_tag in fp_tags:
             Y.append(labels.index("false-positive"))
         # elif tag == "vehicle":
         # Y.append(labels.index("vehicle"))
+        elif re_tag in labels:
+            Y.append(re_tag)
         else:
             Y.append(labels.index("animal"))
         X.append(feature)
