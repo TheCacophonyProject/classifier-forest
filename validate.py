@@ -9,7 +9,8 @@ from sklearn.model_selection import GroupKFold
 import numpy as np
 import os
 import pickle
-
+import joblib
+from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
 import argparse
@@ -70,13 +71,17 @@ def parse_args():
     parser.add_argument(
         "--grid-search", help="Model to load and do preds", action="store_true"
     )
-
+    parser.add_argument(
+        "--save-file", help="Model to load and do preds", default="model.pkl"
+    )
     args = parser.parse_args()
     return args
 
 
 def main():
     args = parse_args()
+    save_file = Path(args.save_file)
+    print("Loading features.npy")
     with open(os.path.join(data_folder, "features.npy"), "rb") as f:
         all_tags = np.load(f)
         all_features = np.load(f)
@@ -93,11 +98,13 @@ def main():
     Y = []
     X = []
     groups = []
+    tags_used = set()
     remapped = {"rat": "rodent", "mouse": "rodent"}
     for tag, feature, uid in zip(all_tags, all_features, all_ids):
         re_tag = remapped.get(tag, tag)
         if re_tag in ignore_labels:
             continue
+        tags_used.add(tag)
         if re_tag in fp_tags:
             Y.append(labels.index("false-positive"))
         # elif tag == "vehicle":
@@ -112,7 +119,9 @@ def main():
     for i, f in enumerate(FEATURES):
         if i not in USED_FEATURES:
             print("Exclidng feature ", f)
-
+    tags_used = list(tags_used)
+    tags_used.sort()
+    print("Using tags ",tags_used)
     if args.grid_search:
         grid_search(np.array(X), np.array(Y))
         return
@@ -223,14 +232,17 @@ def main():
         feature = FEATURES[USED_FEATURES[ind]]
         print(f"{i}   {feature:20} {100*feat_import[ind]:.1f}%")
 
-    import joblib
 
     # save
-    joblib.dump(model, "model.pkl")
+    with save_file.open("wb") as f:
+        pickle.dump(model,f,protocol=5)
     metadata = {}
+    metadata["tags_used"] = tags_used
+    metadata["fp_tags"] = fp_tags
+    metadata["ignore_labels"] = ignore_labels
     metadata["labels"] = labels
     metadata["datetime2"] = time.time()
-    with open("model.json", "w") as f:
+    with f.with_suffix(".json").open("w") as f:
         json.dump(metadata, f)
 
 
