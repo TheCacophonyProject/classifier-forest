@@ -141,7 +141,7 @@ def main():
     )
 
     # Run cross-validation
-    kfold = GroupKFold(n_splits=NUM_FOLDS)
+    kfold = GroupKFold(n_splits=NUM_FOLDS, shuffle=True)
     actual_classes = np.empty([0], dtype=int)
     predicted_classes = np.empty([0], dtype=int)
     predicted_prob = np.empty([0, num_classes])
