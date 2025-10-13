@@ -246,7 +246,7 @@ def main():
     metadata["ignore_labels"] = ignore_labels
     metadata["labels"] = labels
     metadata["datetime2"] = time.time()
-    with f.with_suffix(".json").open("w") as f:
+    with save_file.with_suffix(".json").open("w") as f:
         json.dump(metadata, f)
 
 
