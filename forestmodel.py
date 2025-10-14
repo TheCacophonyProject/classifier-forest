@@ -772,7 +772,7 @@ def main():
     burst_track_ids = []
 
     # probably should not bother repeat track ids etc and just handle this on load
-    with Pool(processes=1, initializer=worker_init, initargs=(args.buff_len,)) as pool:
+    with Pool(processes=4, initializer=worker_init, initargs=(args.buff_len,)) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
