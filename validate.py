@@ -17,7 +17,6 @@ import argparse
 import time
 import json
 
-data_folder = r""
 
 # Hardcoded settings
 REJECT_OTHERS = False  # Set to True to ignore anything that is not explicitly listed in the 'groups' dictionary below, or False if you would prefer to include 'Others' as a class
@@ -26,28 +25,8 @@ MAX_SIZE = 999  # The maximum size a tracked object is allowed to have to be inc
 NUM_TREES = 100  # Number of trees in the random forest. 100 seems to be plenty.
 MAX_TREE_DEPTH = 6  # Maximum tree depth. Values between 4 and 8 seem OK, with 6 a good balance. But might depend on the nature of the classification (predators vs birds, predators vs everything, etc) and the composition of the training data.
 NUM_FOLDS = 5  # Number of folds to use in cross-validation. 5 is fine if the dataset contains more than a few hundred samples of each class.
+from forestmodel import FRAME_FEATURES, BURST_FEATURES
 
-FEATURES = [
-    "sqrt_area",
-    "elongation",
-    "peak_snr",
-    "mean_snr",
-    "fill_factor",
-    "histogram_diff",
-    "thermal_max",
-    "thermal_min",
-    "thermal_std",
-    "filtered_max",
-    "filtered_min",
-    "filtered_std",
-]
-
-
-USED_FEATURES = list(np.arange(len(FEATURES)))
-hist_index = FEATURES.index("histogram_diff")
-USED_FEATURES.remove(hist_index)
-
-USED_FEATURES = np.array(USED_FEATURES)
 from sklearn.model_selection import GridSearchCV
 
 
@@ -69,12 +48,16 @@ def grid_search(x_train, y_train):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--features-file", help="Features file to load", default="features.npy"
+    )
+    parser.add_argument(
         "--grid-search", help="Model to load and do preds", action="store_true"
     )
     parser.add_argument(
         "--save-file", help="Model to load and do preds", default="model.pkl"
     )
     args = parser.parse_args()
+    args.features_file = Path(args.features_file)
     return args
 
 
@@ -82,17 +65,31 @@ def main():
     args = parse_args()
     save_file = Path(args.save_file)
     print("Loading features.npy")
-    with open(os.path.join(data_folder, "features.npy"), "rb") as f:
+    with args.features_file.open("rb") as f:
+        buf_len = np.load(f)[0]
         all_tags = np.load(f)
         all_features = np.load(f)
         all_ids = np.load(f)
         all_track_ids = np.load(f)
     assert len(all_tags) == len(all_features)
-    np.random.seed(0)
+    if buf_len > 1:
+        features = BURST_FEATURES
+        used_features = list(np.arange(len(features)))
+    else:
+        features = FRAME_FEATURES
 
+    # use this to make some features
+    used_features = list(np.arange(len(features)))
+    # hist_index = FEATURES.index("histogram_diff")
+    # USED_FEATURES.remove(hist_index)
+    used_features = np.array(used_features)
+
+    np.random.seed(0)
+    print("Loaded features ", all_features.shape)
     fp_tags = ["water", "false-positive", "insect"]
-    labels = ["animal", "false-positive"]
-    labels = ["rodent", "mustelid", "animal", "false-positive"]
+    # labels = ["animal", "false-positive"]
+    # labels = ["rodent", "mustelid", "animal", "false-positive"]
+    labels = ["rodent", "mustelid"]
     ignore_labels = ["not identifiable", "other"]
     num_classes = len(labels)
     Y = []
@@ -110,20 +107,22 @@ def main():
         re_tag = remapped.get(tag, tag)
         if re_tag in ignore_labels:
             continue
-        tags_used.add(str(tag))
-        if re_tag in fp_tags:
+        if re_tag in fp_tags and "false-positive" in labels:
             Y.append(labels.index("false-positive"))
         # elif tag == "vehicle":
         # Y.append(labels.index("vehicle"))
         elif re_tag in labels:
             Y.append(labels.index(re_tag))
-        else:
+        elif "animal" in labels:
             Y.append(labels.index("animal"))
+        else:
+            continue
+        tags_used.add(str(tag))
+
         X.append(feature)
         groups.append(uid)
-
-    for i, f in enumerate(FEATURES):
-        if i not in USED_FEATURES:
+    for i, f in enumerate(features):
+        if i not in used_features:
             print("Exclidng feature ", f)
     tags_used = list(tags_used)
     tags_used.sort()
@@ -152,7 +151,8 @@ def main():
     print("Num classes", num_classes)
     fold = 0
     X = np.array(X)
-    X = X[:, USED_FEATURES]
+    # print("X is of shape ",X.shape)
+    X = X[:, used_features]
     Y = np.array(Y)
     groups = np.array(groups)
     for train_index, test_index in kfold.split(X, Y, groups):
@@ -228,13 +228,13 @@ def main():
     model.fit(X, Y)
     feat_import = model.feature_importances_
     print("Feature importances:")
-    for i, f_i in enumerate(USED_FEATURES):
-        print(f"{i:3}   {FEATURES[f_i]:20} {100*feat_import[i]:.1f}%")
+    for i, f_i in enumerate(used_features):
+        print(f"{i:3}   {features[f_i]:20} {100*feat_import[i]:.1f}%")
 
     inds = np.argsort(feat_import)
     print("Feature importances (ranked):")
     for i, ind in enumerate(inds):
-        feature = FEATURES[USED_FEATURES[ind]]
+        feature = features[used_features[ind]]
         print(f"{i}   {feature:20} {100*feat_import[ind]:.1f}%")
 
     # save
