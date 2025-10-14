@@ -100,7 +100,10 @@ important_features = [
 EXCLUDED_TAGS = ["poor tracking", "part", "untagged", "unidentified"]
 import json
 
-
+buff_len = 1
+def worker_init(b_len):
+    global buff_len
+    buff_len = b_len
 def extract_features(cptv_file, human_tagged=True):
     cptv_file = Path(cptv_file)
     meta_file = cptv_file.with_suffix(".txt")
@@ -139,14 +142,13 @@ def extract_features(cptv_file, human_tagged=True):
             # print("Using track with tag", human_tag, track["id"])
             if frames is None:
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
-
-            track_features = forest_features(frames, background, ffc_frames, track)
+            track_features = forest_features(frames, background, ffc_frames, track,buff_len)
             all_tags.append(human_tag)
             all_tracks.append(track["id"])
             all_features.append(track_features)
         assert len(all_tags) == len(all_features)
     except Exception as e:
-        # raise e
+        raise e
         print("Exception ", e, " for file ", cptv_file)
         pass
     return all_tags, all_features, all_tracks, meta_data["id"] if meta_data else None
@@ -204,6 +206,7 @@ def forest_features(
     background,
     ffc_frames,
     track_meta,
+    buf_len=1,
 ):
     frame_features = []
     all_features = []
@@ -237,6 +240,11 @@ def forest_features(
         if start is None:
             start = region.frame_number
         end = region.frame_number
+
+    maximum_features = None
+    minimum_features = None
+    avg_features = None
+
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
@@ -250,7 +258,7 @@ def forest_features(
             continue
 
         frame = frames[region.frame_number]
-        feature = FrameFeatures(region)
+        feature = FrameFeatures(region,buf_len)
         sub_back = region.subimage(background)
         cropped_frame = region.subimage(frame)
         thermal = cropped_frame
@@ -259,14 +267,166 @@ def forest_features(
 
         thermal = thermal + back_med - t_median
         feature.calculate(thermal, sub_back)
+        if buf_len > 1:
+            count_back = min(buf_len, prev_count)
 
+            for i in range(count_back):
+                prev = frame_features[-i - 1]
+                vel = feature.cent - prev.cent
+                feature.speed[i] = np.sqrt(np.sum(vel * vel))
+                feature.rel_speed[i] = feature.speed[i] / feature.sqrt_area
+                feature.rel_speed_x[i] = np.abs(vel[0]) / feature.sqrt_area
+                feature.rel_speed_y[i] = np.abs(vel[1]) / feature.sqrt_area
+                feature.speed_x[i] = np.abs(vel[0])
+                feature.speed_y[i] = np.abs(vel[1])
+
+            frame_features.append(feature)            
         frame_features.append(feature)
         features = feature.features()
         all_features.append(features)
         prev_count += 1
-    # Compute statistics for all tracks that have the min required duration
-    return np.array(all_features)
+        f_count +=1
+        if buf_len > 1:
+            if maximum_features is None:
+                maximum_features = features.copy()
+                minimum_features = features.copy()
 
+                avg_features = features.copy()
+            else:
+                maximum_features = np.maximum(features, maximum_features)
+                non_zero = features != 0
+                current_zero = minimum_features == 0
+                minimum_features[current_zero] = features[current_zero]
+                minimum_features[non_zero] = np.minimum(
+                    minimum_features[non_zero], features[non_zero]
+                )
+                # Aggregate
+                avg_features += features
+    # Compute statistics for all tracks that have the min required duration
+    if buf_len == 1:
+        return np.array(all_features)
+    N = f_count - np.array(
+            [
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                3,
+                3,
+                3,
+                3,
+                5,
+                5,
+                5,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )  # Normalise each measure by however many samples went into it
+    avg_features /= N
+    std_features = np.sqrt(np.sum((all_features - avg_features) ** 2, axis=0) / N)
+    diff_features = maximum_features - minimum_features
+    burst_features = calculate_burst_features(frame_features, avg_features[5])
+
+    X = np.hstack(
+        (
+            avg_features,
+            std_features,
+            maximum_features,
+            minimum_features,
+            diff_features,
+            burst_features,
+            np.array([len(regions)]),
+        )
+    )
+    return X
+
+
+
+def calculate_burst_features(frames, mean_speed):
+    #
+
+    cut_off = max(2, (1 + mean_speed))
+    speed_above = len([f for f in frames if f.speed[0] > cut_off])
+    speed_below = len([f for f in frames if f.speed[0] <= cut_off])
+
+    burst_frames = 0
+    burst_ratio = []
+    burst_history = []
+    total_birst_frames = 0
+    low_speed_distance = 0
+    high_speed_distance = 0
+    for i, frame in enumerate(frames):
+        if frame.speed[0] < cut_off:
+            low_speed_distance += frame.speed[0]
+        else:
+            high_speed_distance += frame.speed[0]
+        if i > 0:
+            prev = frames[i - 1]
+            if prev.speed[0] > cut_off and frame.speed[0] > cut_off:
+                burst_frames += 1
+            else:
+                if burst_frames > 0:
+                    burst_start = i - burst_frames - 1
+                    if len(burst_history) > 0:
+                        # length of non burst frames is from previous burst end
+                        prev = burst_history[-1]
+                        burst_start -= prev[0] + prev[1]
+                    burst_history.append((i - burst_frames - 1, burst_frames + 1))
+                    burst_ratio.append(burst_start / (burst_frames + 1))
+                    total_birst_frames += burst_frames + 1
+                    burst_frames = 0
+    burst_ratio = np.array(burst_ratio)
+    if speed_above == 0:
+        speed_ratio = 0
+        speed_distance_ratio = 0
+    else:
+        speed_distance_ratio = low_speed_distance / high_speed_distance
+        speed_ratio = speed_below / speed_above
+
+    if len(burst_ratio) == 0:
+        burst_min = 0
+        burst_max = 0
+        burst_mean = 0
+    else:
+        burst_min = np.amin(burst_ratio)
+        burst_max = np.amax(burst_ratio)
+        burst_mean = np.mean(burst_ratio)
+    burst_chance = len(burst_ratio) / len(frames)
+    burst_per_frame = total_birst_frames / len(frames)
+    return np.array(
+        [
+            speed_distance_ratio,
+            speed_ratio,
+            burst_min,
+            burst_max,
+            burst_mean,
+            burst_chance,
+            burst_per_frame,
+        ]
+    )
 
 class FrameFeatures:
     def __init__(self, region, buff_len=5):
@@ -287,6 +447,14 @@ class FrameFeatures:
         self.filtered_max = None
         self.filtered_std = None
         self.filtered_min = None
+        self.buff_len = buff_len
+        if self.buff_len> 1:
+            self.rel_speed = np.zeros(buff_len)
+            self.rel_speed_x = np.zeros(buff_len)
+            self.rel_speed_y = np.zeros(buff_len)
+            self.speed_x = np.zeros(buff_len)
+            self.speed_y = np.zeros(buff_len)
+            self.speed = np.zeros(buff_len)
 
     def calculate(self, thermal, sub_back):
         self.thermal_min = np.amin(thermal)
@@ -317,6 +485,79 @@ class FrameFeatures:
         self.fill_factor = np.sum(filtered) / area
 
     def features(self):
+        if self.buff_len == 1:
+            return np.array(
+                [
+                    self.sqrt_area,
+                    self.elongation,
+                    self.peak_snr,
+                    self.mean_snr,
+                    self.fill_factor,
+                    self.histogram_diff,
+                    self.thermal_max,
+                    self.thermal_min,
+                    self.thermal_std,
+                    self.filtered_max,
+                    self.filtered_min,
+                    self.filtered_std,
+                ]
+            )
+    
+
+        non_zero = np.array([s for s in self.speed if s > 0])
+        max_speed = 0
+        min_speed = 0
+        avg_speed = 0
+        if len(non_zero) > 0:
+            max_speed = np.amax(non_zero)
+            min_speed = np.amin(non_zero)
+            avg_speed = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.speed_x if s > 0])
+        max_speed_x = 0
+        min_speed_x = 0
+        avg_speed_x = 0
+        if len(non_zero) > 0:
+            max_speed_x = np.amax(non_zero)
+            min_speed_x = np.amin(non_zero)
+            avg_speed_x = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.speed_y if s > 0])
+        max_speed_y = 0
+        min_speed_y = 0
+        avg_speed_y = 0
+        if len(non_zero) > 0:
+            max_speed_y = np.amax(non_zero)
+            min_speed_y = np.amin(non_zero)
+            avg_speed_y = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed if s > 0])
+        max_rel_speed = 0
+        min_rel_speed = 0
+        avg_rel_speed = 0
+        if len(non_zero) > 0:
+            max_rel_speed = np.amax(non_zero)
+            min_rel_speed = np.amin(non_zero)
+            avg_rel_speed = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed_x if s > 0])
+        max_rel_speed_x = 0
+        min_rel_speed_x = 0
+        avg_rel_speed_x = 0
+        if len(non_zero) > 0:
+            max_rel_speed_x = np.amax(non_zero)
+            min_rel_speed_x = np.amin(non_zero)
+            avg_rel_speed_x = np.mean(non_zero)
+
+        non_zero = np.array([s for s in self.rel_speed_y if s > 0])
+        max_rel_speed_y = 0
+        min_rel_speed_y = 0
+        avg_rel_speed_y = 0
+        if len(non_zero) > 0:
+            max_rel_speed_y = np.amax(non_zero)
+            min_rel_speed_y = np.amin(non_zero)
+            avg_rel_speed_y = np.mean(non_zero)
+
         return np.array(
             [
                 self.sqrt_area,
@@ -324,13 +565,37 @@ class FrameFeatures:
                 self.peak_snr,
                 self.mean_snr,
                 self.fill_factor,
+                self.speed[0],
+                self.rel_speed[0],
+                self.rel_speed_x[0],
+                self.rel_speed_y[0],
+                self.speed[2],
+                self.rel_speed[2],
+                self.rel_speed_x[2],
+                self.rel_speed_y[2],
+                self.speed[4],
+                self.rel_speed[4],
+                self.rel_speed_x[4],
+                self.rel_speed_y[4],
+                max_speed,
+                min_speed,
+                avg_speed,
+                max_speed_x,
+                min_speed_x,
+                avg_speed_x,
+                max_speed_y,
+                min_speed_y,
+                avg_speed_y,
+                max_rel_speed,
+                min_rel_speed,
+                avg_rel_speed,
+                max_rel_speed_x,
+                min_rel_speed_x,
+                avg_rel_speed_x,
+                max_rel_speed_y,
+                min_rel_speed_y,
+                avg_rel_speed_y,
                 self.histogram_diff,
-                self.thermal_max,
-                self.thermal_min,
-                self.thermal_std,
-                self.filtered_max,
-                self.filtered_min,
-                self.filtered_std,
             ]
         )
 
@@ -345,6 +610,9 @@ class FrameFeatures:
 
             sub_back *= 255
             crop_t *= 255
+            sub_back = np.uint8(sub_back)
+            crop_t = np.uint8(crop_t)
+
         assert sub_back.shape == crop_t.shape
         # sub_back = np.uint8(sub_back)
         # crop_t = np.uint8(crop_t)
@@ -354,7 +622,7 @@ class FrameFeatures:
         histSize = [h_bins]
         channels = [0]
         hist_base = cv2.calcHist(
-            [sub_back],
+            [np.uint8(sub_back)],
             channels,
             None,
             histSize,
@@ -421,18 +689,37 @@ def intensity_weighted_moments(sub, region=None):
 
 import sys
 from multiprocessing import Pool
+import argparse
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "cptv_dir", help="Dir to load"
+    )
+    parser.add_argument(
+        "--save-file", help="Model to load and do preds", default="features.npy"
+    )
+    parser.add_argument(
+        "--buff-len", help="Buf len should be 5 for burst features 1 for frame by frame", type = int,default = 1)
+    
+    args = parser.parse_args()
+    args.save_file = Path(args.save_file)
+    args.cptv_dir = Path(args.cptv_dir)
+
+    return args
 def main():
     init_logging()
-    load_dir = Path(sys.argv[1])
+    args = parse_args()
+    load_dir = args.cptv_dir
+    print("Loading", load_dir)
     files = list(load_dir.glob(f"**/*.cptv"))
     all_tags = []
     all_features = []
     all_ids = []
     all_track_ids = []
     # probably should not bother repeat track ids etc and just handle this on load
-    with Pool(processes=8) as pool:
+    with Pool(processes=8, initializer=worker_init, initargs=(args.buff_len,)) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
                 continue
@@ -447,7 +734,7 @@ def main():
             assert len(all_track_ids) == len(all_tags)
 
     print("Got tags and features", len(all_tags), len(all_features))
-    with open("features.npy", "wb") as f:
+    with args.save_file.open("wb") as f:
         np.save(f, np.array(all_tags))
         np.save(f, np.array(all_features))
         np.save(f, np.array(all_ids))
