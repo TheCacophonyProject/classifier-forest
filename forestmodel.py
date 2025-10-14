@@ -770,10 +770,14 @@ def main():
     burst_features = []
     burst_ids = []
     burst_track_ids = []
-
+    total_files = len(files)
+    done = 0
     # probably should not bother repeat track ids etc and just handle this on load
     with Pool(processes=4, initializer=worker_init, initargs=(args.buff_len,)) as pool:
         for result in pool.imap_unordered(extract_features, files):
+            if done % 100 == 0:
+                print(f"{done} / {total_files}")
+            done +=1
             if result is None:
                 continue
             tags, features, frame_features, track_ids, clip_id = result
