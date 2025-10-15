@@ -768,6 +768,7 @@ def main():
     load_dir = args.cptv_dir
     print("Loading", load_dir)
     files = list(load_dir.glob(f"**/*.cptv"))
+    files.sort()
     all_tags = []
     all_features = []
     all_ids = []
@@ -794,11 +795,14 @@ def main():
                 burst_ids.append(clip_id)
                 burst_track_ids.append(track_id)
                 # ([track_id] * len(track_features))
+            assert len(set(burst_track_ids)) == len(burst_track_ids)
+
             for track_features, tag, track_id in zip(frame_features, tags, track_ids):
                 all_tags.extend([tag] * len(track_features))
                 all_features.extend(track_features)
                 all_ids.extend([clip_id] * len(track_features))
                 all_track_ids.extend([track_id] * len(track_features))
+        assert len(set(burst_track_ids)) == len(burst_track_ids)
 
         assert len(all_tags) == len(all_features)
         assert len(all_ids) == len(all_tags)
