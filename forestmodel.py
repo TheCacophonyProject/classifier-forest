@@ -8,7 +8,6 @@ from cptv_rs_python_bindings import CptvReader
 from datetime import timedelta
 from region import Region
 from rectangle import Rectangle
-
 crop_rectangle = Rectangle(2, 2, 160 - 2 * 2, 120 - 2 * 2)
 
 FRAME_FEATURES = [
@@ -164,8 +163,10 @@ def extract_features(cptv_file, human_tagged=True):
             if frames is None:
                 frames, background, ffc_frames = load_frames(cptv_file, meta_data)
             burst_features, features = forest_features(
-                frames, background, ffc_frames, track, buff_len
+                frames, background, ffc_frames, track, buff_len,meta_data["id"],track["id"]
             )
+            if burst_features is None:
+                continue
             all_tags.append(human_tag)
             all_tracks.append(track["id"])
             if burst_features is not None:
@@ -173,9 +174,7 @@ def extract_features(cptv_file, human_tagged=True):
             frame_features.append(features)
         assert len(all_tags) == len(all_features)
     except Exception as e:
-        raise e
-        print("Exception ", e, " for file ", cptv_file)
-        pass
+        logging.error("Exception on %s",cptv_file,exc_info=True)
     return (
         all_tags,
         all_features,
@@ -238,6 +237,8 @@ def forest_features(
     ffc_frames,
     track_meta,
     buf_len=1,
+    clip_id = 0,
+    track_id = 0
 ):
     frame_features = []
     all_features = []
@@ -275,7 +276,6 @@ def forest_features(
     maximum_features = None
     minimum_features = None
     avg_features = None
-
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
@@ -287,7 +287,8 @@ def forest_features(
             continue
         if region.frame_number in ffc_frames:
             continue
-
+        if len(frames) <=region.frame_number:
+            continue
         frame = frames[region.frame_number]
         feature = FrameFeatures(region, buf_len)
         sub_back = region.subimage(background)
@@ -377,7 +378,9 @@ def forest_features(
             0,
         ]
     )  # Normalise each measure by however many samples went into it
-
+    if f_count == 0:
+        logging.error("No frames for %s -%s",clip_id,track_id)
+        return None,None
     frame_features_2 = np.array(all_features).copy()
     avg_features /= N
     all_features = np.array(all_features)
@@ -387,6 +390,8 @@ def forest_features(
     diff_features = maximum_features - minimum_features
     burst_features = calculate_burst_features(frame_features, avg_features[5])
 
+    if np.any(np.isinf(avg_features)) or np.any(np.isnan(avg_features)):
+        logging.error("Nan or inf detected for %s - %s ",clip_id,track_id)
     X = np.hstack(
         (
             avg_features,
