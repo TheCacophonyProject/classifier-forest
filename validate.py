@@ -71,6 +71,7 @@ def main():
         all_features = np.load(f)
         all_ids = np.load(f)
         all_track_ids = np.load(f)
+    print("Loaded features")
     assert len(all_tags) == len(all_features)
     if buf_len > 1:
         features = BURST_FEATURES
@@ -171,8 +172,9 @@ def main():
         group_test = groups[test_index]
 
         model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+        print("Fitted model")
         p_pred = model.predict_proba(X_test)
+        y_pred = np.argmax(p_pred, axis=1)
         # cant set number of classes manually so if a class isn't present it crashes
         track_prob, track_y, track_ids, track_predicted = track_accuracy(
             y_test, p_pred, y_tracks
