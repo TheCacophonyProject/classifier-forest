@@ -246,6 +246,8 @@ def main():
     metadata["tags_used"] = tags_used
     metadata["fp_tags"] = fp_tags
     metadata["ignore_labels"] = ignore_labels
+    metadata["remapped"] = remapped
+
     metadata["labels"] = labels
     metadata["datetime2"] = time.time()
     with save_file.with_suffix(".json").open("w") as f:

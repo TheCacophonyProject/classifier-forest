@@ -104,7 +104,7 @@ important_features = [
 EXCLUDED_TAGS = ["poor tracking", "part", "untagged", "unidentified"]
 import json
 
-buff_len = 1
+buff_len = 5
 
 
 def worker_init(b_len):
@@ -118,7 +118,6 @@ def extract_features(cptv_file, human_tagged=True):
     if not meta_file.exists():
         print("No meta for ", cptv_file)
         return None
-
     frames = None
     background = None
     ffc_frames = None
@@ -131,9 +130,12 @@ def extract_features(cptv_file, human_tagged=True):
         with meta_file.open("r") as t:
             # add in some metadata stats
             meta_data = json.load(t)
-        if "Tracks" not in meta_data:
+        tracks = meta_data.get("Tracks")
+        if tracks is None:
+            tracks = meta_data.get("tracks")
+        if tracks is None:
             return None
-        for track in meta_data["Tracks"]:
+        for track in tracks:
             human_tags = []
             human_tag = "untagged"
             if human_tagged:
@@ -178,7 +180,8 @@ def extract_features(cptv_file, human_tagged=True):
             all_tracks.append(track["id"])
             if burst_features is not None:
                 all_features.append(burst_features)
-            frame_features.append(features)
+            if features is not None:
+                frame_features.append(features)
         assert len(all_tags) == len(all_features)
     except Exception as e:
         logging.error("Exception on %s", cptv_file, exc_info=True)
@@ -208,7 +211,7 @@ def is_affected_by_ffc(cptv_frame):
 def load_frames(cptv_file, meta_data):
     ffc_frames = []
     cptv_frames = []
-    tracker_version = meta_data.get("tracker_version")
+    tracker_version = meta_data.get("tracker_version", 11)
 
     background = None
     frame_i = 0
@@ -745,6 +748,8 @@ import argparse
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("cptv_dir", help="Dir to load")
+    parser.add_argument("--predict", help="Run prediction", action="count")
+    parser.add_argument("--model", help="Model to load", action="count")
     parser.add_argument(
         "--save-file", help="Model to load and do preds", default="features.npy"
     )
@@ -810,6 +815,7 @@ def main():
         assert len(burst_tags) == len(burst_features)
         assert len(burst_ids) == len(burst_features)
         assert len(burst_track_ids) == len(burst_features)
+
     print("Got tags and features", np.array(all_features).shape)
     print("Saving to ", args.save_file)
     with args.save_file.open("wb") as f:
