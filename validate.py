@@ -78,7 +78,38 @@ def main():
         used_features = list(np.arange(len(features)))
     else:
         features = FRAME_FEATURES
+    prev_track_id = None
+    count = 0
+    all_tags_5 = []
+    all_features_5 = []
+    all_ids_5 = []
+    all_track_ids_5 = []
+    
+    prev_data = None
+    print("Adding every 5th entry for a track and the last")
+    for tag, feature,track_id, uid in zip(all_tags, all_features, all_track_ids, all_ids):
+        if prev_data is None:
+            prev_data = (tag,feature,track_id,uid)
+            count+=1
+            continue
+        if track_id != prev_data[2]:
+            all_tags_5.append(prev_data[0])
+            all_features_5.append(prev_data[1])
+            all_ids_5.append(prev_data[3])
+            all_track_ids_5 .append(prev_data[2])
+            count = 0   
+        elif count%5 == 0:
+            all_tags_5.append(tag)
+            all_features_5.append(feature)
+            all_ids_5.append(uid)
+            all_track_ids_5 .append(track_id) 
+        prev_data = (tag,feature,track_id,uid)
+        count+=1
 
+    all_tags =np.array(all_tags_5)
+    all_features =np.array(all_features_5)
+    all_ids = np.array(all_ids_5)
+    all_track_ids = np.array(all_track_ids_5)
     # use this to make some features
     used_features = list(np.arange(len(features)))
     # hist_index = FEATURES.index("histogram_diff")
@@ -104,7 +135,7 @@ def main():
         "weasel": "mustelid",
         "stoat": "mustelid",
     }
-    for tag, feature, uid in zip(all_tags, all_features, all_ids):
+    for tag, feature, uid in zip(all_tags, all_features, all_ids):  
         re_tag = remapped.get(tag, tag)
         if re_tag in ignore_labels:
             continue
