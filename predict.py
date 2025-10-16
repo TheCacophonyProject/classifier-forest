@@ -43,7 +43,6 @@ def main():
     files = list(args.cptv_dir.glob(f"**/*.cptv"))
     files.sort()
     model_results = {}
-    print("Loading ", files)
     y_true = []
     y_pred = []
     remapped = {
@@ -61,7 +60,6 @@ def main():
                 continue
             tags, features, _, track_ids, clip_ids = result
             for tag, feature, track_id in zip(tags, features, track_ids):
-                print("Tag is ", tag)
                 tag = remapped.get(tag, tag)
                 prediction = model.predict_proba([feature])
                 y_true.append(labels.index(tag))
