@@ -311,10 +311,10 @@ def forest_features(
                 vel = feature.cent - prev.cent
                 feature.speed[i] = np.sqrt(np.sum(vel * vel))
                 feature.rel_speed[i] = feature.speed[i] / feature.sqrt_area
-                feature.rel_speed_x[i] = np.abs(vel[0]) / feature.sqrt_area
-                feature.rel_speed_y[i] = np.abs(vel[1]) / feature.sqrt_area
-                feature.speed_x[i] = np.abs(vel[0])
-                feature.speed_y[i] = np.abs(vel[1])
+                feature.rel_speed_x[i] = vel[0] / feature.sqrt_area
+                feature.rel_speed_y[i] = vel[1] / feature.sqrt_area
+                feature.speed_x[i] = vel[0]
+                feature.speed_y[i] = vel[1]
                 feature.comparison_frames += 1
             frame_features.append(feature)
         frame_features.append(feature)
