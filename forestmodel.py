@@ -21,14 +21,17 @@ FRAME_FEATURES = [
     "rel_move_1",
     "rel_x_move_1",
     "rel_y_move_1",
+    "theta_1",
     "move_3",
     "rel_move_3",
     "rel_x_move_3",
     "rel_y_move_3",
+    "theta_3",
     "move_5",
     "rel_move_5",
     "rel_x_move_5",
     "rel_y_move_5",
+    "theta_5",
     "max_speed",
     "min_speed",
     "avg_speed",
@@ -47,6 +50,9 @@ FRAME_FEATURES = [
     "max_rel_speed_y",
     "min_rel_speed_y",
     "avg_rel_speed_y",
+    "max_theta",
+    "min_theta",
+    "avg_theta",
     "hist_diff",
 ]
 EXTRA_FEATURES = [
@@ -280,6 +286,7 @@ def forest_features(
     maximum_features = None
     minimum_features = None
     avg_features = None
+    print("For track ", track_id)
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
@@ -309,6 +316,7 @@ def forest_features(
             for i in range(count_back):
                 prev = frame_features[-i - 1]
                 vel = feature.cent - prev.cent
+                feature.theta_change[i] = feature.theta - prev.theta
                 feature.speed[i] = np.sqrt(np.sum(vel * vel))
                 feature.rel_speed[i] = feature.speed[i] / feature.sqrt_area
                 feature.rel_speed_x[i] = vel[0] / feature.sqrt_area
@@ -320,6 +328,11 @@ def forest_features(
         frame_features.append(feature)
         features = feature.features()
         all_features.append(features)
+        # if feature.speed[0]>0.5:
+        print(
+            f"Frame {region.frame_number} {feature.theta_change[0]} features speed {feature.speed} x {feature.speed_x} y {feature.speed_y}"
+        )
+
         features = features[:-1]
         prev_count += 1
         f_count += 1
@@ -353,6 +366,8 @@ def forest_features(
             1,
             1,
             1,
+            1,
+            3,
             3,
             3,
             3,
@@ -361,6 +376,10 @@ def forest_features(
             5,
             5,
             5,
+            5,
+            0,
+            0,
+            0,
             0,
             0,
             0,
@@ -502,6 +521,8 @@ class FrameFeatures:
         self.buff_len = buff_len
         self.comparison_frames = 0
         if self.buff_len > 1:
+            self.theta_change = np.zeros(buff_len)
+
             self.rel_speed = np.zeros(buff_len)
             self.rel_speed_x = np.zeros(buff_len)
             self.rel_speed_y = np.zeros(buff_len)
@@ -561,54 +582,93 @@ class FrameFeatures:
         min_speed = 0
         avg_speed = 0
         if len(non_zero) > 0:
-            max_speed = np.amax(non_zero)
-            min_speed = np.amin(non_zero)
             avg_speed = np.mean(non_zero)
+            avg_speed = abs(avg_speed)
+
+            # calculate  max and min but keep sign
+            max_speed = np.argmax(np.abs(non_zero))
+            max_speed = non_zero[max_speed]
+            min_speed = np.argmin(np.abs(non_zero))
+            min_speed = non_zero[min_speed]
 
         non_zero = np.array([s for s in self.speed_x if s > 0])
         max_speed_x = 0
         min_speed_x = 0
         avg_speed_x = 0
         if len(non_zero) > 0:
-            max_speed_x = np.amax(non_zero)
-            min_speed_x = np.amin(non_zero)
             avg_speed_x = np.mean(non_zero)
+            avg_speed_x = abs(avg_speed_x)
+
+            max_speed_x = np.argmax(np.abs(non_zero))
+            max_speed_x = non_zero[max_speed_x]
+            min_speed_x = np.argmin(np.abs(non_zero))
+            min_speed_x = non_zero[min_speed_x]
 
         non_zero = np.array([s for s in self.speed_y if s > 0])
         max_speed_y = 0
         min_speed_y = 0
         avg_speed_y = 0
         if len(non_zero) > 0:
-            max_speed_y = np.amax(non_zero)
-            min_speed_y = np.amin(non_zero)
             avg_speed_y = np.mean(non_zero)
+            avg_speed_y = abs(avg_speed_y)
+
+            max_speed_y = np.argmax(np.abs(non_zero))
+            max_speed_y = non_zero[max_speed_y]
+            min_speed_y = np.argmin(np.abs(non_zero))
+            min_speed_y = non_zero[min_speed_y]
 
         non_zero = np.array([s for s in self.rel_speed if s > 0])
         max_rel_speed = 0
         min_rel_speed = 0
         avg_rel_speed = 0
         if len(non_zero) > 0:
-            max_rel_speed = np.amax(non_zero)
-            min_rel_speed = np.amin(non_zero)
             avg_rel_speed = np.mean(non_zero)
+            avg_rel_speed = abs(avg_rel_speed)
+
+            max_rel_speed = np.argmax(np.abs(non_zero))
+            max_rel_speed = non_zero[max_rel_speed]
+            min_rel_speed = np.argmin(np.abs(non_zero))
+            min_rel_speed = non_zero[min_rel_speed]
 
         non_zero = np.array([s for s in self.rel_speed_x if s > 0])
         max_rel_speed_x = 0
         min_rel_speed_x = 0
         avg_rel_speed_x = 0
         if len(non_zero) > 0:
-            max_rel_speed_x = np.amax(non_zero)
-            min_rel_speed_x = np.amin(non_zero)
             avg_rel_speed_x = np.mean(non_zero)
+            avg_rel_speed_x = abs(avg_rel_speed_x)
+
+            max_rel_speed_x = np.argmax(np.abs(non_zero))
+            max_rel_speed_x = non_zero[max_rel_speed_x]
+            min_rel_speed_x = np.argmin(np.abs(non_zero))
+            min_rel_speed_x = non_zero[min_rel_speed_x]
 
         non_zero = np.array([s for s in self.rel_speed_y if s > 0])
         max_rel_speed_y = 0
         min_rel_speed_y = 0
         avg_rel_speed_y = 0
         if len(non_zero) > 0:
-            max_rel_speed_y = np.amax(non_zero)
-            min_rel_speed_y = np.amin(non_zero)
             avg_rel_speed_y = np.mean(non_zero)
+            avg_rel_speed_y = abs(avg_rel_speed_y)
+
+            max_rel_speed_y = np.argmax(np.abs(non_zero))
+            max_rel_speed_y = non_zero[max_rel_speed_y]
+            min_rel_speed_y = np.argmin(np.abs(non_zero))
+            min_rel_speed_y = non_zero[min_rel_speed_y]
+
+        non_zero = np.array([s for s in self.theta_change if s > 0])
+
+        max_theta = 0
+        min_theta = 0
+        avg_theta = 0
+        if len(non_zero) > 0:
+            avg_theta = np.mean(non_zero)
+            avg_theta = abs(avg_theta)
+
+            max_theta = np.argmax(np.abs(non_zero))
+            max_theta = non_zero[max_theta]
+            min_theta = np.argmin(np.abs(non_zero))
+            min_theta = non_zero[min_theta]
 
         return np.array(
             [
@@ -621,14 +681,17 @@ class FrameFeatures:
                 self.rel_speed[0],
                 self.rel_speed_x[0],
                 self.rel_speed_y[0],
+                self.theta_change[0],
                 self.speed[2],
                 self.rel_speed[2],
                 self.rel_speed_x[2],
                 self.rel_speed_y[2],
+                self.theta_change[2],
                 self.speed[4],
                 self.rel_speed[4],
                 self.rel_speed_x[4],
                 self.rel_speed_y[4],
+                self.theta_change[4],
                 max_speed,
                 min_speed,
                 avg_speed,
@@ -647,6 +710,9 @@ class FrameFeatures:
                 max_rel_speed_y,
                 min_rel_speed_y,
                 avg_rel_speed_y,
+                max_theta,
+                min_theta,
+                avg_theta,
                 self.histogram_diff,
                 self.comparison_frames,
             ]

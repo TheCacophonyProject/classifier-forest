@@ -39,9 +39,13 @@ def main():
     meta_f = args.model.with_suffix(".json")
     with meta_f.open("r") as f:
         metadata = json.load(f)
+    buff_len = metadata.get("buff_len", 1)
     labels = metadata["labels"]
-    files = list(args.cptv_dir.glob(f"**/*.cptv"))
-    files.sort()
+    if args.cptv_dir.is_file():
+        files = [args.cptv_dir]
+    else:
+        files = list(args.cptv_dir.glob(f"**/*.cptv"))
+        files.sort()
     model_results = {}
     y_true = []
     y_pred = []
@@ -58,13 +62,22 @@ def main():
             if result is None:
                 print("Could not load file ", result)
                 continue
-            tags, features, _, track_ids, clip_ids = result
+            tags, features, frame_features, track_ids, clip_ids = result
+            if buff_len == 1:
+                features = frame_features
+
             for tag, feature, track_id in zip(tags, features, track_ids):
+                print("Feature is ", feature.shape)
                 tag = remapped.get(tag, tag)
-                prediction = model.predict_proba([feature])
+                prediction = model.predict_proba(feature)
                 y_true.append(labels.index(tag))
-                assert len(prediction) == 1
-                prediction = prediction[0]
+                # for p in prediction:
+                # print(np.round(p*100))
+                prediction = np.mean(prediction, axis=0)
+                print("Total is ", np.round(prediction * 100))
+
+                # assert len(prediction) == 1
+                # prediction = prediction[0]
                 # print("prediction is ",np.round(100*prediction))
 
                 max_i = np.argmax(prediction)
