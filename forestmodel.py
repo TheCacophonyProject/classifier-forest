@@ -286,7 +286,6 @@ def forest_features(
     maximum_features = None
     minimum_features = None
     avg_features = None
-    print("For track ", track_id)
     for region in regions:
         # for i, frame in enumerate(track_frames):
         # region = regions[i]
@@ -329,9 +328,9 @@ def forest_features(
         features = feature.features()
         all_features.append(features)
         # if feature.speed[0]>0.5:
-        print(
-            f"Frame {region.frame_number} {feature.theta_change[0]} features speed {feature.speed} x {feature.speed_x} y {feature.speed_y}"
-        )
+        # print(
+        #     f"Frame {region.frame_number} {feature.theta_change[0]} features speed {feature.speed} x {feature.speed_x} y {feature.speed_y}"
+        # )
 
         features = features[:-1]
         prev_count += 1
