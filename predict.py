@@ -71,32 +71,27 @@ def main():
                 features = frame_features
 
             for tag, feature, track_id in zip(tags, features, track_ids):
-                print("Feature is ", feature.shape)
                 tag = remapped.get(tag, tag)
                 prediction = model.predict_proba(feature)
                 y_true.append(labels.index(tag))
                 # for p in prediction:
                 # print(np.round(p*100))
                 prediction = np.mean(prediction, axis=0)
-                print("Total is ", np.round(prediction * 100))
 
                 max_i = np.argmax(prediction)
                 max_p = prediction[max_i]
-                y_i =  tag
                 # y_i =
                 if max_p >= 0.7:
                     y_pred.append(max_i)
                 else:
                     y_pred.append(len(labels) - 1)
-                if y_i == max_i:
+                if y_true[-1] == max_i:
                     if max_p < 0.7:
-                        stats[y_true[-1]]["unsure"].append(f"{clip_ids}-{track_ids}")
+                        stats[tag]["unsure"].append(f"{clip_ids}-{track_ids}")
                     else:
-                        stats[y_true[-1]]["correct"].append(
-                            f"{clip_ids}-{track_ids}"
-                        )
+                        stats[tag]["correct"].append(f"{clip_ids}-{track_ids}")
                 else:
-                    stats[y_i]["incorrect"].append(f"{clip_ids}-{track_ids}")
+                    stats[tag]["incorrect"].append(f"{clip_ids}-{track_ids}")
 
     y_pred = np.array(y_pred)
     y_true = np.array(y_true)
@@ -105,10 +100,9 @@ def main():
     plt.savefig(args.confusion_file.with_suffix(".png"), format="png")
     np.save(str(args.confusion_file.with_suffix(".npy")), cm)
 
-
     stats_file = args.confusion_file.with_suffix(".json")
     with stats_file.open("w") as f:
-        json.dump(stats,f)
+        json.dump(stats, f)
     # for k, v in model_results.items():
     #     pred = np.mean(v, axis=0)
     #     best_p = np.argmax(pred)
