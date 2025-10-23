@@ -581,79 +581,55 @@ class FrameFeatures:
         min_speed = 0
         avg_speed = 0
         if len(non_zero) > 0:
+            max_speed = np.amax(non_zero)
+            min_speed = np.amin(non_zero)
             avg_speed = np.mean(non_zero)
-            avg_speed = abs(avg_speed)
-
-            # calculate  max and min but keep sign
-            max_speed = np.argmax(np.abs(non_zero))
-            max_speed = non_zero[max_speed]
-            min_speed = np.argmin(np.abs(non_zero))
-            min_speed = non_zero[min_speed]
 
         non_zero = np.array([s for s in self.speed_x if s > 0])
         max_speed_x = 0
         min_speed_x = 0
         avg_speed_x = 0
         if len(non_zero) > 0:
+            max_speed_x = np.amax(non_zero)
+            min_speed_x = np.amin(non_zero)
             avg_speed_x = np.mean(non_zero)
-            avg_speed_x = abs(avg_speed_x)
-
-            max_speed_x = np.argmax(np.abs(non_zero))
-            max_speed_x = non_zero[max_speed_x]
-            min_speed_x = np.argmin(np.abs(non_zero))
-            min_speed_x = non_zero[min_speed_x]
 
         non_zero = np.array([s for s in self.speed_y if s > 0])
         max_speed_y = 0
         min_speed_y = 0
         avg_speed_y = 0
         if len(non_zero) > 0:
+            max_speed_y = np.amax(non_zero)
+            min_speed_y = np.amin(non_zero)
             avg_speed_y = np.mean(non_zero)
-            avg_speed_y = abs(avg_speed_y)
-
-            max_speed_y = np.argmax(np.abs(non_zero))
-            max_speed_y = non_zero[max_speed_y]
-            min_speed_y = np.argmin(np.abs(non_zero))
-            min_speed_y = non_zero[min_speed_y]
 
         non_zero = np.array([s for s in self.rel_speed if s > 0])
         max_rel_speed = 0
         min_rel_speed = 0
         avg_rel_speed = 0
         if len(non_zero) > 0:
+            max_rel_speed = np.amax(non_zero)
+            min_rel_speed = np.amin(non_zero)
             avg_rel_speed = np.mean(non_zero)
-            avg_rel_speed = abs(avg_rel_speed)
-
-            max_rel_speed = np.argmax(np.abs(non_zero))
-            max_rel_speed = non_zero[max_rel_speed]
-            min_rel_speed = np.argmin(np.abs(non_zero))
-            min_rel_speed = non_zero[min_rel_speed]
 
         non_zero = np.array([s for s in self.rel_speed_x if s > 0])
         max_rel_speed_x = 0
         min_rel_speed_x = 0
         avg_rel_speed_x = 0
         if len(non_zero) > 0:
+            max_rel_speed_x = np.amax(non_zero)
+            min_rel_speed_x = np.amin(non_zero)
             avg_rel_speed_x = np.mean(non_zero)
-            avg_rel_speed_x = abs(avg_rel_speed_x)
-
-            max_rel_speed_x = np.argmax(np.abs(non_zero))
-            max_rel_speed_x = non_zero[max_rel_speed_x]
-            min_rel_speed_x = np.argmin(np.abs(non_zero))
-            min_rel_speed_x = non_zero[min_rel_speed_x]
 
         non_zero = np.array([s for s in self.rel_speed_y if s > 0])
         max_rel_speed_y = 0
         min_rel_speed_y = 0
         avg_rel_speed_y = 0
         if len(non_zero) > 0:
+            max_rel_speed_y = np.amax(non_zero)
+            min_rel_speed_y = np.amin(non_zero)
             avg_rel_speed_y = np.mean(non_zero)
-            avg_rel_speed_y = abs(avg_rel_speed_y)
 
-            max_rel_speed_y = np.argmax(np.abs(non_zero))
-            max_rel_speed_y = non_zero[max_rel_speed_y]
-            min_rel_speed_y = np.argmin(np.abs(non_zero))
-            min_rel_speed_y = non_zero[min_rel_speed_y]
 
         non_zero = np.array([s for s in self.theta_change if s > 0])
 
@@ -661,13 +637,10 @@ class FrameFeatures:
         min_theta = 0
         avg_theta = 0
         if len(non_zero) > 0:
+            max_theta = np.amax(non_zero)
+            min_theta = np.amin(non_zero)
             avg_theta = np.mean(non_zero)
-            avg_theta = abs(avg_theta)
-
-            max_theta = np.argmax(np.abs(non_zero))
-            max_theta = non_zero[max_theta]
-            min_theta = np.argmin(np.abs(non_zero))
-            min_theta = non_zero[min_theta]
+        
 
         return np.array(
             [
