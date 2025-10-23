@@ -57,6 +57,10 @@ def main():
         "stoat": "mustelid",
     }
     labels.append("None")
+
+    stats = {}
+    for lbl in labels:
+        stats[lbl] = {"correct": [], "incorrect": [], "unsure": []}
     with Pool(processes=4, initargs=(5,)) as pool:
         for result in pool.imap_unordered(extract_features, files):
             if result is None:
@@ -76,36 +80,35 @@ def main():
                 prediction = np.mean(prediction, axis=0)
                 print("Total is ", np.round(prediction * 100))
 
-                # assert len(prediction) == 1
-                # prediction = prediction[0]
-                # print("prediction is ",np.round(100*prediction))
-
                 max_i = np.argmax(prediction)
                 max_p = prediction[max_i]
+                y_i =  tag
+                # y_i =
                 if max_p >= 0.7:
                     y_pred.append(max_i)
                 else:
                     y_pred.append(len(labels) - 1)
-                # predictions = model_results.setdefault(track_id, {"predictions":[],"y_true":tag})
-                # predictions["predictions"].append(prediction[0])
-    # result = extract_features(cptv_file, human_tagged=False)
-    # if result is None:
-    #     print("Got no features")
-    #     return
-    # tags, features, ids, track_ids = result
-    # model = joblib.load("model.pkl")
-    # model_results = {}
-    # assert len(tags) == len(track_ids)
-    # for tag, feature, id, track_id in zip(tags, features, ids, track_ids):
-    #     prediction = model.predict_proba([feature])
-    #     predictions = model_results.setdefault(track_id, [])
-    #     predictions.append(prediction[0])
+                if y_i == max_i:
+                    if max_p < 0.7:
+                        stats[y_true[-1]]["unsure"].append(f"{clip_ids}-{track_ids}")
+                    else:
+                        stats[y_true[-1]]["correct"].append(
+                            f"{clip_ids}-{track_ids}"
+                        )
+                else:
+                    stats[y_i]["incorrect"].append(f"{clip_ids}-{track_ids}")
+
     y_pred = np.array(y_pred)
     y_true = np.array(y_true)
     cm = confusion_matrix(y_true, y_pred, labels=np.arange(len(labels)))
     figure = plot_confusion_matrix(cm, class_names=labels)
     plt.savefig(args.confusion_file.with_suffix(".png"), format="png")
     np.save(str(args.confusion_file.with_suffix(".npy")), cm)
+
+
+    stats_file = args.confusion_file.with_suffix(".json")
+    with stats_file.open("w") as f:
+        json.dump(stats,f)
     # for k, v in model_results.items():
     #     pred = np.mean(v, axis=0)
     #     best_p = np.argmax(pred)
